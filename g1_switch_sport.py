@@ -1,36 +1,74 @@
 #!/usr/bin/env python3
 """
-Activate G1 sport mode via motion switcher
+G1 Motion Mode Switcher
+- Checks current mode
+- Switches to sport mode
 Run: python3 ~/G1-Robot/g1_switch_sport.py
 """
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy
-from unitree_api.msg import Request
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+from unitree_api.msg import Request, Response
 import json
 import time
 
-class SportModeSwitcher(Node):
-    def __init__(self):
-        super().__init__("sport_mode_switcher")
-        qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
-        self.pub = self.create_publisher(Request, "/api/motion_switcher/request", qos)
-        self.get_logger().info("SportModeSwitcher ready")
+CHECK_MODE   = 1001
+SELECT_MODE  = 1002
+RELEASE_MODE = 1003
 
-    def switch_to_sport(self):
+class MotionSwitcher(Node):
+    def __init__(self):
+        super().__init__("motion_switcher")
+        qos_rel = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+        qos_be  = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
+
+        self.pub = self.create_publisher(Request, "/api/motion_switcher/request", qos_rel)
+        self.response = None
+        self.create_subscription(Response, "/api/motion_switcher/response", self._cb, qos_be)
+
+    def _cb(self, msg):
+        self.response = msg
+
+    def send_and_wait(self, api_id, param=None, timeout=5.0):
         msg = Request()
-        msg.header.identity.api_id = 1001
-        msg.parameter = json.dumps({"name": "sport_mode"})
-        time.sleep(1)
-        print("Sending switch to sport mode...")
+        msg.header.identity.api_id = api_id
+        if param:
+            msg.parameter = json.dumps(param)
+        self.response = None
         self.pub.publish(msg)
-        time.sleep(2)
-        print("Done. Check if /api/sport/response now has Publisher count: 1")
+        start = time.time()
+        while self.response is None and (time.time() - start) < timeout:
+            rclpy.spin_once(self, timeout_sec=0.1)
+        return self.response
+
+    def check_mode(self):
+        print("Checking current mode...")
+        resp = self.send_and_wait(CHECK_MODE)
+        if resp:
+            print(f"  Response: {resp.data}")
+        else:
+            print("  No response (timeout)")
+
+    def select_mode(self, name):
+        print(f"Switching to mode: {name}...")
+        resp = self.send_and_wait(SELECT_MODE, {"name": name})
+        if resp:
+            print(f"  Response code: {resp.header.status.code}")
+            print(f"  Response data: {resp.data}")
+        else:
+            print("  No response (timeout)")
 
 def main():
     rclpy.init()
-    node = SportModeSwitcher()
-    node.switch_to_sport()
+    node = MotionSwitcher()
+    time.sleep(1)
+
+    node.check_mode()
+    time.sleep(1)
+    node.select_mode("normal")
+    time.sleep(2)
+    node.check_mode()
+
     rclpy.shutdown()
 
 if __name__ == "__main__":
