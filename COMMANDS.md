@@ -1,5 +1,18 @@
 # Commands — Run these in Ubuntu terminal
 
+## Pull latest
 ```bash
-grep -B2 -A10 "name == \"normal\"\|name == \"ai\"" ~/ros2_ws/src/unitree_ros2/example/src/src/g1/lowlevel/g1_dual_arm_example.cpp
+cd ~/G1-Robot && git pull
+```
+
+## Run mode switcher (robot must be in green/dev mode)
+```bash
+source ~/unitree_ros2/setup.sh
+source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
+python3 ~/G1-Robot/g1_switch_sport.py
+```
+
+## Check sport response after
+```bash
+ros2 topic info /api/sport/response
 ```

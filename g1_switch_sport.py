@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
 G1 Motion Mode Switcher
-- Checks current mode
-- Switches to sport mode
+Releases ai mode and switches to normal (sport_mode)
 Run: python3 ~/G1-Robot/g1_switch_sport.py
 """
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 from unitree_api.msg import Request, Response
 import json
 import time
@@ -21,7 +20,6 @@ class MotionSwitcher(Node):
         super().__init__("motion_switcher")
         qos_rel = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
         qos_be  = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
-
         self.pub = self.create_publisher(Request, "/api/motion_switcher/request", qos_rel)
         self.response = None
         self.create_subscription(Response, "/api/motion_switcher/response", self._cb, qos_be)
@@ -42,31 +40,46 @@ class MotionSwitcher(Node):
         return self.response
 
     def check_mode(self):
-        print("Checking current mode...")
         resp = self.send_and_wait(CHECK_MODE)
         if resp:
-            print(f"  Response: {resp.data}")
+            print(f"  Current mode: {resp.data}")
         else:
-            print("  No response (timeout)")
+            print("  No response")
+
+    def release_mode(self):
+        print("Releasing current mode...")
+        resp = self.send_and_wait(RELEASE_MODE)
+        if resp:
+            print(f"  Release response code: {resp.header.status.code}")
+        else:
+            print("  No response")
 
     def select_mode(self, name):
-        print(f"Switching to mode: {name}...")
+        print(f"Selecting mode: {name}...")
         resp = self.send_and_wait(SELECT_MODE, {"name": name})
         if resp:
-            print(f"  Response code: {resp.header.status.code}")
-            print(f"  Response data: {resp.data}")
+            print(f"  Select response code: {resp.header.status.code}")
         else:
-            print("  No response (timeout)")
+            print("  No response")
 
 def main():
     rclpy.init()
     node = MotionSwitcher()
     time.sleep(1)
 
+    print("=== Step 1: Check current mode ===")
     node.check_mode()
     time.sleep(1)
+
+    print("=== Step 2: Release current mode ===")
+    node.release_mode()
+    time.sleep(2)
+
+    print("=== Step 3: Select normal mode ===")
     node.select_mode("normal")
     time.sleep(2)
+
+    print("=== Step 4: Verify mode ===")
     node.check_mode()
 
     rclpy.shutdown()
