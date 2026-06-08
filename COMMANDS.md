@@ -1,18 +1,5 @@
 # Commands — Run these in Ubuntu terminal
 
-## Pull latest
 ```bash
-cd ~/G1-Robot && git pull
-```
-
-## Run motion switcher
-```bash
-source ~/unitree_ros2/setup.sh
-source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-python3 ~/G1-Robot/g1_switch_sport.py
-```
-
-## Check sport response after running
-```bash
-ros2 topic info /api/sport/response
+grep -r "SelectMode\|select_mode\|normal\|sport\|loco\|ai\|mode" ~/ros2_ws/src/unitree_ros2/example/src/src/g1/ --include="*.cpp" | grep -i "select\|mode_name\|switch" | head -20
 ```
