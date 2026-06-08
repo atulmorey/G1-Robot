@@ -1,15 +1,16 @@
 # Commands — Run these in Ubuntu terminal
 
-## Restart ROS2
+## Check motion switcher response
 ```bash
-ros2 daemon stop
-source ~/unitree_ros2/setup.sh
-source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-ros2 daemon start
-ros2 topic list | grep sport
+ros2 topic info /api/motion_switcher/response
 ```
 
-## Check sport response topic
+## Check what mode robot is currently in
 ```bash
-ros2 topic info /api/sport/response
+ros2 topic echo /api/motion_switcher/response --once
+```
+
+## Check sportmodestate for current mode
+```bash
+ros2 topic echo /lf/sportmodestate --once
 ```
