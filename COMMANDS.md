@@ -1,5 +1,5 @@
 # Commands — Run these in Ubuntu terminal
 
 ```bash
-grep -r "SelectMode\|\"normal\"\|\"sport\"\|\"loco\"\|\"ai\"\|\"arm\"" ~/ros2_ws/src/unitree_ros2/example/src/ --include="*.cpp" --include="*.hpp" | head -20
+grep -B2 -A10 "name == \"normal\"\|name == \"ai\"" ~/ros2_ws/src/unitree_ros2/example/src/src/g1/lowlevel/g1_dual_arm_example.cpp
 ```
