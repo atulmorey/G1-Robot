@@ -483,10 +483,17 @@ class RobotControlApp:
 def main():
     root = tk.Tk()
     app = RobotControlApp(root)
-    root.protocol("WM_DELETE_WINDOW", lambda: (
-        rclpy.shutdown() if ROS_AVAILABLE and rclpy.ok() else None,
+
+    def _on_close():
+        try:
+            if ROS_AVAILABLE and rclpy.ok():
+                rclpy.shutdown()
+        except Exception:
+            pass
+        root.quit()
         root.destroy()
-    ))
+
+    root.protocol("WM_DELETE_WINDOW", _on_close)
     root.mainloop()
 
 

@@ -1,5 +1,10 @@
 # Robot Control App — Commands
 
+## Kill all running instances
+```bash
+pkill -f robot_control_app.py
+```
+
 ## Step 1: Restore and pull latest from GitHub
 ```bash
 cd ~/G1-Robot && git checkout robot_control_app.py && git pull && head -2 ~/G1-Robot/robot_control_app.py
