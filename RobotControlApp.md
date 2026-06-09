@@ -1,8 +1,8 @@
 # Robot Control App — Commands
 
-## Step 1: Download the app to Ubuntu
+## Step 1: Pull latest from GitHub
 ```bash
-mkdir -p ~/G1-Robot && curl -L -o ~/G1-Robot/robot_control_app.py https://raw.githubusercontent.com/atulmorey/G1-Robot/main/robot_control_app.py && echo "Download OK" && head -2 ~/G1-Robot/robot_control_app.py
+cd ~/G1-Robot && git pull
 ```
 
 ## Step 2: Test offline (no robot needed)
