@@ -1,6 +1,13 @@
 # Commands — Run these in Ubuntu terminal
 
-## Install Open3D for point cloud processing
+## Pull latest
 ```bash
-pip3 install open3d numpy
+cd ~/G1-Robot && git pull
+```
+
+## Run object detector
+```bash
+source ~/unitree_ros2/setup.sh
+source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
+python3 ~/G1-Robot/g1_detect_objects.py
 ```
