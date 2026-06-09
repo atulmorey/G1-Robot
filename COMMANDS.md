@@ -1,14 +1,17 @@
 # Commands — Run these in Ubuntu terminal
 
-## Step 1 - Build the unitree_ros package so URDF is findable
+## Update NVIDIA drivers
 ```bash
-cd ~/ros2_ws
-source /opt/ros/humble/setup.bash
-colcon build --packages-select unitree_ros --symlink-install 2>&1 | tail -5
+sudo apt update
+sudo ubuntu-drivers autoinstall
 ```
 
-## Step 2 - Launch MoveIt Setup Assistant
+## Update Ubuntu OS
 ```bash
-source ~/ros2_ws/install/setup.bash
-ros2 run moveit_setup_assistant moveit_setup_assistant
+sudo apt upgrade -y
+```
+
+## Reboot after both complete
+```bash
+sudo reboot
 ```
