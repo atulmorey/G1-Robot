@@ -1,14 +1,14 @@
 # Commands — Run these in Ubuntu terminal
 
-## Basic checks
+## Check sensor message types
 ```bash
-echo "terminal works"
+ros2 topic info /frontvideostream
+ros2 topic info /utlidar/cloud_livox_mid360
 ```
 
+## Launch RViz2 to visualize
 ```bash
-ip addr show eno1 | grep inet
-```
-
-```bash
-cat ~/unitree_ros2/cyclone_g1.xml
+source ~/unitree_ros2/setup.sh
+source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
+ros2 run rviz2 rviz2
 ```
