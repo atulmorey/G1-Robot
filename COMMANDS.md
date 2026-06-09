@@ -1,13 +1,18 @@
-# Commands — Run these in Ubuntu terminal
+# Commands — Run these in Ubuntu terminal (robot standing)
 
-## Pull latest
-```bash
-cd ~/G1-Robot && git pull
-```
-
-## Run touch planner (robot must be standing)
+## Check if /armsdk has any subscribers
 ```bash
 source ~/unitree_ros2/setup.sh
 source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-python3 ~/G1-Robot/g1_plan_touch.py
+ros2 topic info /armsdk
+```
+
+## Check /arm_sdk topic
+```bash
+ros2 topic info /arm_sdk
+```
+
+## Check all arm-related topics
+```bash
+ros2 topic list | grep -i arm
 ```
