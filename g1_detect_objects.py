@@ -22,12 +22,12 @@ import time
 
 # ── Region of interest (metres, in robot/lidar frame) ──────────
 # Adjust these based on where your table is relative to the robot
-ROI_X_MIN = 0.3    # min distance in front of robot
-ROI_X_MAX = 2.0    # max distance in front of robot
-ROI_Y_MIN = -1.0   # left/right range
-ROI_Y_MAX = 1.0
-ROI_Z_MIN = -0.5   # below robot waist
-ROI_Z_MAX = 0.5    # above robot waist
+ROI_X_MIN = -3.0   # wide range — table may be at negative X
+ROI_X_MAX = 3.0
+ROI_Y_MIN = -3.0
+ROI_Y_MAX = 3.0
+ROI_Z_MIN = 0.1    # above floor
+ROI_Z_MAX = 1.5    # up to table+object height
 
 TABLE_Z_THRESHOLD = 0.05   # objects must be at least 5cm above table plane
 MIN_CLUSTER_POINTS = 10    # minimum points to count as an object
