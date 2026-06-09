@@ -5,9 +5,9 @@
 cd ~/G1-Robot && git pull
 ```
 
-## Run object detector to confirm table visible
+## Run touch planner (robot must be standing)
 ```bash
 source ~/unitree_ros2/setup.sh
 source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-python3 ~/G1-Robot/g1_detect_objects.py
+python3 ~/G1-Robot/g1_plan_touch.py
 ```

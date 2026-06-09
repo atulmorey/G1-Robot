@@ -108,33 +108,34 @@ def find_best_target(points):
 
 def lidar_to_joint_angles(target):
     """
-    Convert LiDAR target position to approximate arm joint angles.
-    This is a simplified inverse kinematics for the G1 left arm.
-    target: [x, y, z] in LiDAR frame
-    Returns: dict of joint_index -> target_angle
+    Simplified IK for standing G1 left arm.
+    Objects detected at z≈1.0-1.15m (table surface ~0.9m in LiDAR frame).
+    LiDAR frame: x=forward/back, y=left/right, z=up
+    Table objects consistently at y≈-1.0 to -1.1m (robot's left-front)
     """
     tx, ty, tz = target
 
-    # The table is at y≈-1.2m in LiDAR frame
-    # Map to approximate shoulder angles
-    # shoulder_pitch: controls forward/backward reach
-    # shoulder_roll: controls left/right reach
+    # Distance from robot base in XY plane
+    dist_xy = np.sqrt(tx**2 + ty**2)
 
-    # Normalize distance — table is ~0.56m away
-    dist = np.sqrt(tx**2 + ty**2)
+    # Shoulder pitch — reach down toward table
+    # Table is roughly at shoulder height, pitch forward slightly
+    shoulder_pitch = np.clip(-0.2 + tx * 0.3, -0.5, 0.5)
 
-    # Shoulder pitch — reach forward (positive = forward)
-    shoulder_pitch = np.clip(0.3 + tz * 0.5, 0.1, 0.8)
+    # Shoulder roll — reach sideways toward object (y is lateral)
+    # Negative y = robot's right side in LiDAR frame
+    shoulder_roll = np.clip(0.3 - ty * 0.15, 0.1, 0.8)
 
-    # Shoulder roll — reach sideways toward object
-    shoulder_roll = np.clip(ty * 0.3 + 0.2, 0.1, 0.6)
+    # Shoulder yaw — rotate arm toward object
+    shoulder_yaw = np.clip(tx * 0.2, -0.3, 0.3)
 
-    # Elbow — bend more for closer objects
-    elbow = np.clip(0.8 - dist * 0.3, 0.3, 1.2)
+    # Elbow — bend to reach down to table height
+    elbow = np.clip(1.0 - (tz - 0.8) * 0.5, 0.4, 1.4)
 
     return {
         LEFT_SHOULDER_PITCH: shoulder_pitch,
         LEFT_SHOULDER_ROLL:  shoulder_roll,
+        LEFT_SHOULDER_YAW:   shoulder_yaw,
         LEFT_ELBOW:          elbow,
     }
 
