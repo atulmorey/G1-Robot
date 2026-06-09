@@ -1,17 +1,11 @@
 # Commands — Run these in Ubuntu terminal
 
-## Install MoveIt2 for Humble
+## Check MoveIt2 installed
 ```bash
-sudo apt install -y ros-humble-moveit
+ros2 pkg list | grep moveit
 ```
 
-## Clone Unitree robot descriptions (includes G1 URDF)
+## List available G1 URDF files
 ```bash
-cd ~/ros2_ws/src
-git clone https://github.com/unitreerobotics/unitree_ros.git
-```
-
-## Check if URDF is now available
-```bash
-find ~/ros2_ws/src/unitree_ros -name "*.urdf" | grep -i g1
+ls ~/ros2_ws/src/unitree_ros/robots/g1_description/urdf/
 ```
