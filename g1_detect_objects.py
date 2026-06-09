@@ -22,10 +22,10 @@ import time
 
 # ── Region of interest (metres, in robot/lidar frame) ──────────
 # Adjust these based on where your table is relative to the robot
-ROI_X_MIN = 0.2    # table is directly in front at ~0.56m
-ROI_X_MAX = 1.0
-ROI_Y_MIN = -0.6   # table width coverage
-ROI_Y_MAX = 0.6
+ROI_X_MIN = -0.2   # table clusters seen at x=0.1-0.4
+ROI_X_MAX = 0.8
+ROI_Y_MIN = -1.6   # table is at y≈-1.2 in LiDAR frame
+ROI_Y_MAX = -0.7
 ROI_Z_MIN = 0.15   # above floor
 ROI_Z_MAX = 0.6    # table top + objects
 
