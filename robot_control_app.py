@@ -296,6 +296,7 @@ class RobotControlApp:
             ("Wave Left Arm",   "✋",  self._cmd_wave_left, BTN_BG),
             ("Wave Right Arm",  "🤚",  self._cmd_wave_right, BTN_BG),
             ("Play Audio",      "🔊",  self._cmd_audio,     BTN_BG),
+            ("Detect Objects",  "👁",  self._cmd_detect,    "#1a4a6b"),
             ("Walk Forward",    "▶",  self._cmd_walk,      BTN_BG),
         ]
 
@@ -304,6 +305,7 @@ class RobotControlApp:
             btn = self._big_btn(grid, icon, label, cmd, color)
             btn.grid(row=r, column=c, padx=6, pady=6, sticky="nsew")
             grid.rowconfigure(r, weight=1)
+        self._detect_proc = None
 
     def _big_btn(self, parent, icon, label, command, bg=BTN_BG):
         f = tk.Frame(parent, bg=bg, cursor="hand2")
@@ -452,6 +454,32 @@ class RobotControlApp:
         self._run_in_thread(
             lambda: self.node.play_audio(self._log) if self.node
             else self._log("OFFLINE: audio simulated"))
+
+    def _cmd_detect(self):
+        if self._detect_proc and self._detect_proc.poll() is None:
+            self._detect_proc.terminate()
+            self._log("Object detection stopped.")
+            return
+        if OFFLINE:
+            self._log("OFFLINE: Object 1: x=0.22m  y=-1.25m  z=0.36m  height=0.24m")
+            self._log("OFFLINE: Object 2: x=0.39m  y=-1.18m  z=0.35m  height=0.31m")
+            self._log("OFFLINE: Object 3: x=0.51m  y=-1.18m  z=0.37m  height=0.25m")
+            return
+        self._log("Starting object detection (click again to stop)...")
+        script = os.path.expanduser("~/G1-Robot/g1_detect_objects.py")
+        self._detect_proc = subprocess.Popen(
+            ["python3", script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+        threading.Thread(target=self._stream_detect_output, daemon=True).start()
+
+    def _stream_detect_output(self):
+        for line in self._detect_proc.stdout:
+            line = line.strip()
+            if line and ("Object" in line or "detected" in line or "Table" in line):
+                self._log(line)
 
     def _cmd_walk(self):
         self._log("Walk Forward: not yet implemented (Phase 2)")

@@ -1,16 +1,18 @@
 # Commands — Run these in Ubuntu terminal
 
-## Check if MoveIt2 is installed
+## Pull latest
 ```bash
-ros2 pkg list | grep moveit
+cd ~/G1-Robot && git pull
 ```
 
-## Check if G1 URDF exists
+## Run the app
 ```bash
-find ~/ros2_ws -name "*.urdf" -o -name "*.xacro" | grep -i g1 | head -10
+source ~/unitree_ros2/setup.sh
+source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
+python3 ~/G1-Robot/robot_control_app.py
 ```
 
-## Check if unitree description package exists
+## Run offline (no robot needed)
 ```bash
-find / -name "*.urdf" 2>/dev/null | grep -i "g1\|unitree" | head -10
+python3 ~/G1-Robot/robot_control_app.py --offline
 ```
