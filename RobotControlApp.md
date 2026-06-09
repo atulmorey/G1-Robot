@@ -1,8 +1,8 @@
 # Robot Control App — Commands
 
-## Step 1: Pull latest from GitHub
+## Step 1: Restore and pull latest from GitHub
 ```bash
-cd ~/G1-Robot && git pull
+cd ~/G1-Robot && git checkout robot_control_app.py && git pull && head -2 ~/G1-Robot/robot_control_app.py
 ```
 
 ## Step 2: Test offline (no robot needed)
