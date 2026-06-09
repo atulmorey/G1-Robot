@@ -22,15 +22,15 @@ import time
 
 # ── Region of interest (metres, in robot/lidar frame) ──────────
 # Adjust these based on where your table is relative to the robot
-ROI_X_MIN = -3.0   # wide range — table may be at negative X
-ROI_X_MAX = 3.0
-ROI_Y_MIN = -3.0
-ROI_Y_MAX = 3.0
-ROI_Z_MIN = 0.1    # above floor
-ROI_Z_MAX = 1.5    # up to table+object height
+ROI_X_MIN = 0.2    # table is directly in front at ~0.56m
+ROI_X_MAX = 1.0
+ROI_Y_MIN = -0.6   # table width coverage
+ROI_Y_MAX = 0.6
+ROI_Z_MIN = 0.15   # above floor
+ROI_Z_MAX = 0.6    # table top + objects
 
 TABLE_Z_THRESHOLD = 0.05   # objects must be at least 5cm above table plane
-MIN_CLUSTER_POINTS = 10    # minimum points to count as an object
+MIN_CLUSTER_POINTS = 30    # minimum points to count as an object
 
 
 def parse_pointcloud2(msg):
