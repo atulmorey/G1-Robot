@@ -1,18 +1,16 @@
 # Commands — Run these in Ubuntu terminal
 
-## Pull latest
+## Share output with Claude (replaces copy-paste)
 ```bash
-cd ~/G1-Robot && git pull
+YOUR_COMMAND > ~/G1-Robot/OUTPUT.md 2>&1 && cd ~/G1-Robot && git add OUTPUT.md && git commit -m "output" && git push
 ```
 
-## Run the app
+## Example — check MoveIt2 installed
 ```bash
-source ~/unitree_ros2/setup.sh
-source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-python3 ~/G1-Robot/robot_control_app.py
+ros2 pkg list | grep moveit > ~/G1-Robot/OUTPUT.md 2>&1 && cd ~/G1-Robot && git add OUTPUT.md && git commit -m "output" && git push
 ```
 
-## Run offline (no robot needed)
+## Example — check G1 URDF
 ```bash
-python3 ~/G1-Robot/robot_control_app.py --offline
+find ~/ros2_ws -name "*.urdf" -o -name "*.xacro" 2>/dev/null | grep -i g1 > ~/G1-Robot/OUTPUT.md 2>&1 && cd ~/G1-Robot && git add OUTPUT.md && git commit -m "output" && git push
 ```
