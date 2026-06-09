@@ -1,15 +1,33 @@
-# Commands — Run these in Ubuntu terminal
+# Commands — Robot Control App
 
-## Session startup
+## Step 1: Download the app to Ubuntu
 ```bash
-ros2 daemon stop
-sudo route add -net 224.0.0.0 netmask 240.0.0.0 dev eno1
-source ~/unitree_ros2/setup.sh
-source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-ros2 daemon start
+curl -o ~/G1-Robot/robot_control_app.py https://raw.githubusercontent.com/atulmorey/G1-Robot/main/robot_control_app.py
 ```
 
-## Confirm robot connected and sensors visible
+## Step 2: Test offline (no robot needed)
 ```bash
-ping -c 2 192.168.123.161 && ros2 topic list | grep -E "video|lidar|utlidar|camera"
+python3 ~/G1-Robot/robot_control_app.py --offline
+```
+
+## Step 3: Run live (robot must be on + Ethernet connected)
+```bash
+source ~/unitree_ros2/setup.sh
+source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
+python3 ~/G1-Robot/robot_control_app.py
+```
+
+## Step 4: Create desktop shortcut
+```bash
+cat > ~/Desktop/RobotControl.desktop << 'EOF'
+[Desktop Entry]
+Name=Robot Control
+Comment=Unitree G1 Executive Demo
+Exec=bash -c "source ~/unitree_ros2/setup.sh && source ~/unitree_ros2/cyclonedds_ws/install/setup.bash && python3 ~/G1-Robot/robot_control_app.py"
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Utility;
+EOF
+chmod +x ~/Desktop/RobotControl.desktop
 ```
