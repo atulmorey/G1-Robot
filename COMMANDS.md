@@ -1,20 +1,14 @@
 # Commands — Run these in Ubuntu terminal
 
-## Fix multicast route (must do after every reboot)
+## Basic checks
 ```bash
-sudo route add -net 224.0.0.0 netmask 240.0.0.0 dev eno1
+echo "terminal works"
 ```
 
-## Restart ROS and check connection
 ```bash
-ros2 daemon stop
-source ~/unitree_ros2/setup.sh
-source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-ros2 daemon start
-ping -c 2 192.168.123.161 && echo "Robot reachable" || echo "Robot NOT reachable"
+ip addr show eno1 | grep inet
 ```
 
-## Check topics
 ```bash
-ros2 topic list > /tmp/topics.txt && wc -l /tmp/topics.txt && grep -E "video|lidar|utlidar" /tmp/topics.txt
+cat ~/unitree_ros2/cyclone_g1.xml
 ```
