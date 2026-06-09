@@ -1,11 +1,17 @@
-# Commands — Run these in a SECOND terminal (keep Setup Assistant open)
+# Commands — Run these in Ubuntu terminal
 
-## Check if MoveIt is actively processing
+## Kill any hanging MoveIt processes
 ```bash
-top -bn1 | grep -E "moveit|setup"
+killall moveit_setup_assistant 2>/dev/null
 ```
 
-## Check for any error messages
+## Create MoveIt config directory
 ```bash
-ps aux | grep moveit
+mkdir -p ~/ros2_ws/src/g1_moveit_config/config
+mkdir -p ~/ros2_ws/src/g1_moveit_config/launch
+```
+
+## Check G1 URDF joint names (needed for config)
+```bash
+grep -o 'name="[^"]*"' ~/ros2_ws/src/unitree_ros/robots/g1_description/g1_29dof.urdf | grep -i "shoulder\|elbow\|wrist" | head -20
 ```
