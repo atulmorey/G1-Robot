@@ -4,6 +4,10 @@
 ```bash
 cd ~/G1-Robot && git checkout robot_control_app.py && git pull && head -2 ~/G1-Robot/robot_control_app.py
 ```
+If `head -2` shows `#!/usr/bin/env python3` the file is good. If not, run:
+```bash
+cd ~/G1-Robot && git fetch --all && git reset --hard origin/main && head -2 ~/G1-Robot/robot_control_app.py
+```
 
 ## Step 2: Test offline (no robot needed)
 ```bash
