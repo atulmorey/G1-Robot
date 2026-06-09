@@ -19,12 +19,12 @@ import time
 import threading
 
 # ── ROI (same as g1_detect_objects.py) ─────────────────────────
-ROI_X_MIN = -0.2
-ROI_X_MAX = 0.8
-ROI_Y_MIN = -1.6
-ROI_Y_MAX = -0.7
-ROI_Z_MIN = 0.15
-ROI_Z_MAX = 0.6
+ROI_X_MIN = -2.0
+ROI_X_MAX = 1.0
+ROI_Y_MIN = -3.0
+ROI_Y_MAX = 3.0
+ROI_Z_MIN = 0.2
+ROI_Z_MAX = 1.2
 MIN_CLUSTER_POINTS = 30
 
 # ── Arm joints for left arm touch ───────────────────────────────

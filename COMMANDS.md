@@ -1,8 +1,13 @@
 # Commands — Run these in Ubuntu terminal
 
-## Re-scan bounds from standing position
+## Pull latest
+```bash
+cd ~/G1-Robot && git pull
+```
+
+## Run object detector to confirm table visible
 ```bash
 source ~/unitree_ros2/setup.sh
 source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-python3 ~/G1-Robot/g1_scan_bounds.py
+python3 ~/G1-Robot/g1_detect_objects.py
 ```
