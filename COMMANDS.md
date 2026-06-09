@@ -1,9 +1,16 @@
 # Commands — Run these in Ubuntu terminal
 
-## Pull and run
+## Check if MoveIt2 is installed
 ```bash
-cd ~/G1-Robot && git pull
-source ~/unitree_ros2/setup.sh
-source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-python3 ~/G1-Robot/g1_detect_objects.py
+ros2 pkg list | grep moveit
+```
+
+## Check if G1 URDF exists
+```bash
+find ~/ros2_ws -name "*.urdf" -o -name "*.xacro" | grep -i g1 | head -10
+```
+
+## Check if unitree description package exists
+```bash
+find / -name "*.urdf" 2>/dev/null | grep -i "g1\|unitree" | head -10
 ```
