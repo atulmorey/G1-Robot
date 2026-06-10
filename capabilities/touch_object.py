@@ -8,6 +8,7 @@ META = {
 import sys
 import time
 import struct
+import json
 import numpy as np
 
 OFFLINE = "--offline" in sys.argv
@@ -19,6 +20,7 @@ if not OFFLINE:
         from rclpy.qos import QoSProfile, ReliabilityPolicy
         from sensor_msgs.msg import PointCloud2
         from unitree_hg.msg import LowCmd, LowState
+        from unitree_api.msg import Request, Response
         ROS_AVAILABLE = True
     except ImportError:
         ROS_AVAILABLE = False
@@ -35,11 +37,20 @@ ROI_Z_MIN = 0.2
 ROI_Z_MAX = 1.2
 MIN_CLUSTER_POINTS = 30
 
-# ── Arm joints ───────────────────────────────────────────────────
+# ── Known arm positions from task_id=2 ──────────────────────────
 LEFT_SHOULDER_PITCH = 15
 LEFT_SHOULDER_ROLL  = 16
 LEFT_SHOULDER_YAW   = 17
 LEFT_ELBOW          = 18
+
+ARM_TASK_2_JOINTS = {
+    LEFT_SHOULDER_PITCH: 0.292,
+    LEFT_SHOULDER_ROLL:  0.218,
+    LEFT_SHOULDER_YAW:  -0.012,
+    LEFT_ELBOW:          0.979,
+}
+
+LOCO_SET_ARM_TASK = 7106
 
 
 def calc_crc(cmd):
@@ -103,30 +114,13 @@ def find_best_target(points):
     return best
 
 
-def lidar_to_joints(target):
-    tx, ty, tz = target
-    shoulder_pitch = np.clip(-0.2 + tx * 0.3, -0.5, 0.5)
-    shoulder_roll  = np.clip(0.3 - ty * 0.15, 0.1, 0.8)
-    shoulder_yaw   = np.clip(tx * 0.2, -0.3, 0.3)
-    elbow          = np.clip(1.0 - (tz - 0.8) * 0.5, 0.4, 1.4)
-    return {
-        LEFT_SHOULDER_PITCH: shoulder_pitch,
-        LEFT_SHOULDER_ROLL:  shoulder_roll,
-        LEFT_SHOULDER_YAW:   shoulder_yaw,
-        LEFT_ELBOW:          elbow,
-    }
-
-
 def main():
     if OFFLINE:
         print("OFFLINE: Simulating touch sequence...")
-        print("  Scanning for objects...")
-        time.sleep(1)
         print("  Target: x=-0.21m  y=-1.06m  z=1.10m")
-        print("  Joint 15: -0.235 rad  Joint 16: 0.466 rad  Joint 18: 1.074 rad")
-        print("  Moving arm to target...")
-        time.sleep(2)
-        print("  Returning to home...")
+        print("  Activating arm via task_id=2...")
+        time.sleep(1)
+        print("  Returning home...")
         time.sleep(1)
         print("  Touch complete!")
         return
@@ -137,13 +131,30 @@ def main():
         def __init__(self):
             super().__init__("touch_object_node")
             qos_be  = QoSProfile(depth=1,  reliability=ReliabilityPolicy.BEST_EFFORT)
-            self.arm_pub = self.create_publisher(LowCmd, "/armsdk", qos_be)
+            qos_rel = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+            self.arm_pub   = self.create_publisher(LowCmd, "/armsdk", qos_be)
+            self.sport_pub = self.create_publisher(Request, "/api/sport/request", qos_rel)
             self.latest_cloud = None
             self.latest_state = None
+            self.sport_resp   = None
             self.create_subscription(PointCloud2, "/utlidar/cloud_livox_mid360",
                                      lambda m: setattr(self, 'latest_cloud', m), qos_be)
             self.create_subscription(LowState, "/lf/lowstate",
                                      lambda m: setattr(self, 'latest_state', m), qos_be)
+            self.create_subscription(Response, "/api/sport/response",
+                                     lambda m: setattr(self, 'sport_resp', m), qos_be)
+
+        def send_arm_task(self, task_id):
+            msg = Request()
+            msg.header.identity.api_id = LOCO_SET_ARM_TASK
+            msg.parameter = json.dumps({"data": task_id})
+            self.sport_resp = None
+            self.sport_pub.publish(msg)
+            start = time.time()
+            while self.sport_resp is None and (time.time() - start) < 3.0:
+                rclpy.spin_once(self, timeout_sec=0.1)
+            code = self.sport_resp.header.status.code if self.sport_resp else "timeout"
+            return code
 
         def send_joints(self, joint_angles, duration=3.0, steps=60):
             cmd = LowCmd()
@@ -165,7 +176,6 @@ def main():
     start = time.time()
     while node.latest_state is None and (time.time() - start) < 8.0:
         rclpy.spin_once(node, timeout_sec=0.1)
-
     if node.latest_state is None:
         print("No robot state — is robot on?")
         rclpy.shutdown()
@@ -176,36 +186,47 @@ def main():
         rclpy.spin_once(node, timeout_sec=0.2)
         if node.latest_cloud:
             break
-
     if node.latest_cloud is None:
-        print("No LiDAR data received.")
+        print("No LiDAR data.")
         rclpy.shutdown()
         sys.exit(1)
 
     points = parse_pointcloud2(node.latest_cloud)
     target = find_best_target(points)
-
     if target is None:
-        print("No object detected in ROI — point robot toward table.")
+        print("No object detected — point robot toward table.")
         rclpy.shutdown()
         sys.exit(1)
 
     print(f"Target: x={target[0]:.2f}m  y={target[1]:.2f}m  z={target[2]:.2f}m")
-    joints = lidar_to_joints(target)
-    print("Planned joints:")
-    for j, q in joints.items():
-        print(f"  Joint {j}: {q:.3f} rad")
 
+    # Step 1 — activate arm via sport API task_id=2
+    print("Activating arm (task_id=2)...")
+    code = node.send_arm_task(2)
+    print(f"Arm task response: {code}")
+    time.sleep(1.5)
+
+    # Step 2 — fine-tune toward object using known task_id=2 joint positions as base
+    # Adjust shoulder pitch based on object Z height relative to arm position
+    joints = dict(ARM_TASK_2_JOINTS)
+    tz = float(target[2])
+    ty = float(target[1])
+
+    # Adjust pitch down/up based on object height difference from arm rest position
+    joints[LEFT_SHOULDER_PITCH] = float(np.clip(0.292 + (tz - 1.0) * 0.3, 0.0, 0.8))
+    joints[LEFT_SHOULDER_ROLL]  = float(np.clip(0.218 - ty * 0.1, 0.1, 0.6))
+
+    print(f"Fine-tuned joints: pitch={joints[LEFT_SHOULDER_PITCH]:.3f}  roll={joints[LEFT_SHOULDER_ROLL]:.3f}")
     print("Moving arm to target...")
-    node.send_joints(joints, duration=3.0)
+    node.send_joints(joints, duration=2.0)
 
     print("Holding 1 second...")
     time.sleep(1.0)
 
-    print("Returning to home...")
-    home = {LEFT_SHOULDER_PITCH: 0.0, LEFT_SHOULDER_ROLL: 0.0,
-            LEFT_SHOULDER_YAW: 0.0, LEFT_ELBOW: 0.0}
-    node.send_joints(home, duration=3.0)
+    print("Returning home (task_id=0)...")
+    code = node.send_arm_task(0)
+    print(f"Home response: {code}")
+    time.sleep(1.0)
 
     print("Touch complete!")
     rclpy.shutdown()
