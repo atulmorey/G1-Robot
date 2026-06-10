@@ -33,6 +33,7 @@ else:
 CAPABILITIES_DIR = os.path.join(os.path.dirname(__file__), "capabilities")
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 
 # ── Health Monitor ────────────────────────────────────────────────────────────
