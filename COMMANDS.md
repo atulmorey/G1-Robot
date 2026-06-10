@@ -1,8 +1,7 @@
 # Commands — Run these in Ubuntu terminal
 
 ```bash
-ls ~/G1-Robot/templates/
-find ~/G1-Robot/templates -name "*.cache" -o -name "__pycache__" 2>/dev/null
-curl -s http://localhost:5000 | grep -c "savelog"
-curl -s http://localhost:5000 | wc -c
+source ~/unitree_ros2/setup.sh
+source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
+ros2 topic echo /sportmodestate unitree_go/msg/SportModeState --once
 ```
