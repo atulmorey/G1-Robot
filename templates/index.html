@@ -220,9 +220,12 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
 <body>
 
 <div id="header">
-  <div>
+  <div style="display:flex;align-items:center;gap:16px;">
     <span style="font-size:1.3rem;font-weight:700;">ROBOT CONTROL</span>
-    <span class="sub">Executive Demo</span>
+    <select id="robot-select" style="background:#1a5276;color:#e0e0e0;border:1px solid #0f3460;border-radius:6px;padding:4px 10px;font-size:0.9rem;cursor:pointer;">
+      <option value="g1" selected>Unitree G1</option>
+      <option value="bd" disabled>Boston Dynamics (coming soon)</option>
+    </select>
   </div>
   <div id="mode-badge">...</div>
 </div>
