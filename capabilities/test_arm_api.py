@@ -63,12 +63,15 @@ def main():
     time.sleep(0.5)
 
     print("Testing arm task API (api_id=7106)...")
+    print("Watch the robot arm carefully!")
     for task_id in [0, 1, 2, 3]:
-        print(f"Sending task_id={task_id}...")
+        print(f">>> SENDING task_id={task_id} NOW <<<")
         node.send_arm_task(task_id)
-        time.sleep(2.0)
+        print(f"    task_id={task_id} sent — watching for 4 seconds...")
+        time.sleep(4.0)
+        print(f"    task_id={task_id} done.")
 
-    print("Done — check if arm moved on any task_id.")
+    print("Done — which task_id moved the arm?")
     rclpy.shutdown()
 
 
