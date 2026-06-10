@@ -261,6 +261,30 @@ def api_status():
     return jsonify({"status": process_manager.status()})
 
 
+@app.route("/api/savelog", methods=["POST"])
+def api_savelog():
+    data = request.get_json(silent=True) or {}
+    log_content = data.get("log", "")
+    try:
+        output_path = os.path.join(os.path.dirname(__file__), "OUTPUT.md")
+        with open(output_path, "w") as f:
+            f.write("# Log Output\n\n```\n")
+            f.write(log_content)
+            f.write("\n```\n")
+        subprocess.run(
+            ["git", "add", "OUTPUT.md"],
+            cwd=os.path.dirname(__file__), capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "save log"],
+            cwd=os.path.dirname(__file__), capture_output=True)
+        subprocess.run(
+            ["git", "push"],
+            cwd=os.path.dirname(__file__), capture_output=True)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/shutdown", methods=["POST"])
 def api_shutdown():
     process_manager.stop()

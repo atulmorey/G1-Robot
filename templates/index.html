@@ -178,7 +178,7 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
   align-items: center;
   margin-bottom: 8px;
 }
-#clear-btn {
+#clear-btn, #savelog-btn {
   background: var(--accent);
   color: var(--white);
   border: none;
@@ -188,6 +188,8 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
   cursor: pointer;
 }
 #clear-btn:hover { background: var(--hover); }
+#savelog-btn { background: #1a4a2e; color: var(--green); }
+#savelog-btn:hover { background: #1f5c38; }
 #log {
   background: #0d1117;
   border-radius: 4px;
@@ -251,6 +253,7 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
   <div class="panel" id="log-panel">
     <div id="log-header">
       <div class="panel-title" style="margin:0;">LOG</div>
+      <button id="savelog-btn" onclick="saveLog()">💾 Save Log</button>
       <button id="clear-btn" onclick="clearLog()">Clear</button>
     </div>
     <div id="log"></div>
@@ -389,6 +392,26 @@ function fixGrid() {
   } else {
     ctrl.style.gridColumn = '2';
     log.style.gridColumn  = '2';
+  }
+}
+
+// ── Save Log ──────────────────────────────────────────────────────────────────
+async function saveLog() {
+  const lines = [...document.querySelectorAll('#log .log-line')].map(l => l.textContent).join('\n');
+  const btn = document.getElementById('savelog-btn');
+  btn.textContent = '⏳ Saving...';
+  try {
+    const r = await fetch('/api/savelog', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({log: lines})
+    });
+    const d = await r.json();
+    btn.textContent = d.ok ? '✓ Saved!' : '✗ Error';
+    setTimeout(() => btn.textContent = '💾 Save Log', 2000);
+  } catch(e) {
+    btn.textContent = '✗ Error';
+    setTimeout(() => btn.textContent = '💾 Save Log', 2000);
   }
 }
 
