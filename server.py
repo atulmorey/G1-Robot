@@ -54,13 +54,21 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
             qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
             self.create_subscription(LowState, "/lf/lowstate", self._state_cb, qos)
 
+    MODE_NAMES = {
+        0: "IDLE", 1: "BALANCE_STAND", 2: "POSE", 3: "LOCOMOTION",
+        5: "JOINT_LOCK", 6: "DAMPING", 7: "RECOVERY_STAND", 9: "SIT"
+    }
+
     def _state_cb(self, msg):
         now = time.time()
+        mode = int(msg.mode_machine)
         with self._lock:
             self._last_msg_time = now
             self._state = {
                 "connected": True,
                 "offline_mode": False,
+                "mode": self.MODE_NAMES.get(mode, f"mode_{mode}"),
+                "mode_id": mode,
                 "imu": {
                     "roll":  round(float(msg.imu_state.rpy[0]), 3),
                     "pitch": round(float(msg.imu_state.rpy[1]), 3),
@@ -78,6 +86,8 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
             return {
                 "connected": False,
                 "offline_mode": True,
+                "mode": "OFFLINE",
+                "mode_id": -1,
                 "imu": {"roll": 0.051, "pitch": -0.044, "yaw": 2.151},
                 "joints": {"left_shoulder": 0.080, "right_shoulder": -0.087},
                 "last_update": time.time(),
@@ -272,6 +282,12 @@ def api_stop():
 @app.route("/api/status")
 def api_status():
     return jsonify({"status": process_manager.status()})
+
+
+@app.route("/api/forceStop", methods=["POST"])
+def api_force_stop():
+    process_manager.stop()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/savelog", methods=["POST"])
