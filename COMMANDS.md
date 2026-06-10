@@ -1,5 +1,5 @@
 # Commands
 
 ```bash
-source ~/unitree_ros2/setup.sh && source ~/unitree_ros2/cyclonedds_ws/install/setup.bash && ros2 topic info /api/arm/request --verbose 2>&1 | head -15
+grep -r "arm\|ARM" ~/ros2_ws/src/unitree_ros2/example/src/include/g1/g1_loco_client.hpp | grep -i "task\|api_id\|arm" | head -20
 ```
