@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Robot Control (Offline)
+Comment=Launch G1 Robot Control App in offline mode
+Exec=bash -c "cd ~/G1-Robot && git pull -q && python3 ~/G1-Robot/server.py --offline & until curl -s http://localhost:5000 > /dev/null; do sleep 1; done && firefox http://localhost:5000"
+Icon=utilities-terminal
+Terminal=true
