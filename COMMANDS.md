@@ -3,5 +3,5 @@
 ```bash
 source ~/unitree_ros2/setup.sh
 source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-ros2 topic info /lf/sportmodestate --verbose | grep "Topic type" | head -5
+ros2 interface show unitree_hg/msg/SportModeState
 ```
