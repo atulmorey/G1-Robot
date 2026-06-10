@@ -7,7 +7,7 @@ git fetch origin -q && git reset --hard origin/main -q
 # Kill any existing server on port 5000
 pkill -9 -f "server.py" 2>/dev/null
 fuser -k 5000/tcp 2>/dev/null
-sleep 2
+sleep 4
 
 # Log output for debugging
 LOG=/home/john/robot_app.log

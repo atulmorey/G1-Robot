@@ -211,7 +211,14 @@ def scan_capabilities():
 
 # ── Flask routes ──────────────────────────────────────────────────────────────
 if ROS_AVAILABLE:
-    rclpy.init()
+    try:
+        rclpy.init()
+    except Exception:
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
+        rclpy.init()
 health_monitor = HealthMonitor()
 process_manager = ProcessManager()
 
