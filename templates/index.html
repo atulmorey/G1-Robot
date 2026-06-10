@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robot Control</title>
+<style>
+:root {
+  --bg:     #1a1a2e;
+  --panel:  #16213e;
+  --accent: #0f3460;
+  --green:  #00d4aa;
+  --red:    #e94560;
+  --yellow: #f5a623;
+  --white:  #e0e0e0;
+  --gray:   #6b7280;
+  --hover:  #1e4d8c;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial, sans-serif; min-height: 100vh; }
+
+/* Header */
+#header {
+  background: var(--accent);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#header h1 { font-size: 1.3rem; font-weight: 700; }
+#header .sub { font-size: 0.85rem; color: var(--gray); margin-left: 10px; }
+#mode-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.3);
+}
+
+/* Layout */
+#main {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 14px;
+  padding: 14px;
+  min-height: calc(100vh - 56px);
+}
+@media (max-width: 640px) {
+  #main { grid-template-columns: 1fr; }
+}
+
+/* Panels */
+.panel {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+/* Health panel */
+#health-panel { grid-row: 1 / 3; }
+@media (max-width: 640px) { #health-panel { grid-row: auto; } }
+
+.panel-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gray);
+  margin-bottom: 12px;
+}
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--gray);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.dot.green  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.dot.red    { background: var(--red); }
+.dot.yellow { background: var(--yellow); }
+.status-label { flex: 1; font-size: 0.9rem; }
+.status-val { font-size: 0.8rem; color: var(--gray); }
+
+.section-label {
+  font-size: 0.75rem;
+  color: var(--gray);
+  margin: 12px 0 6px;
+  font-weight: 600;
+}
+.imu-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+.imu-row span:last-child { font-weight: 600; }
+
+/* Capabilities grid */
+#cap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  align-content: start;
+}
+.cap-card {
+  background: var(--accent);
+  border-radius: 8px;
+  padding: 18px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  user-select: none;
+}
+.cap-card:hover { background: var(--hover); }
+.cap-card.active {
+  box-shadow: 0 0 0 2px var(--green);
+  animation: pulse 1.5s infinite;
+}
+.cap-card.disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--green); }
+  50%       { box-shadow: 0 0 0 4px var(--green); }
+}
+.cap-icon { font-size: 1.8rem; margin-bottom: 6px; }
+.cap-name { font-size: 0.85rem; font-weight: 700; }
+.cap-desc { font-size: 0.72rem; color: var(--gray); margin-top: 3px; }
+
+/* Controls bar */
+#controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#stop-btn {
+  background: var(--red);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 22px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+#stop-btn:not(:disabled) { opacity: 1; }
+#stop-btn:not(:disabled):hover { filter: brightness(1.15); }
+#running-label { font-size: 0.85rem; color: var(--gray); }
+
+/* Log panel */
+#log-panel { grid-column: 2; }
+@media (max-width: 640px) { #log-panel { grid-column: 1; } }
+#log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+#clear-btn {
+  background: var(--accent);
+  color: var(--white);
+  border: none;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+#clear-btn:hover { background: var(--hover); }
+#log {
+  background: #0d1117;
+  border-radius: 4px;
+  padding: 8px;
+  height: 160px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--green);
+  line-height: 1.5;
+}
+@media (max-width: 640px) { #log { height: 120px; } }
+.log-line { word-break: break-all; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <span style="font-size:1.3rem;font-weight:700;">ROBOT CONTROL</span>
+    <span class="sub">Executive Demo</span>
+  </div>
+  <div id="mode-badge">...</div>
+</div>
+
+<div id="main">
+
+  <!-- Health Panel -->
+  <div class="panel" id="health-panel">
+    <div class="panel-title">HEALTH STATUS</div>
+    <div class="status-row">
+      <div class="dot" id="dot-conn"></div>
+      <span class="status-label">Connection</span>
+      <span class="status-val" id="val-conn">—</span>
+    </div>
+    <div class="section-label">IMU</div>
+    <div class="imu-row"><span>Roll</span><span id="imu-roll">—</span></div>
+    <div class="imu-row"><span>Pitch</span><span id="imu-pitch">—</span></div>
+    <div class="imu-row"><span>Yaw</span><span id="imu-yaw">—</span></div>
+    <div class="section-label">Joints</div>
+    <div class="imu-row"><span>L Shoulder (15)</span><span id="j-left">—</span></div>
+    <div class="imu-row"><span>R Shoulder (22)</span><span id="j-right">—</span></div>
+  </div>
+
+  <!-- Capabilities Grid -->
+  <div class="panel" id="cap-panel">
+    <div class="panel-title">CAPABILITIES</div>
+    <div id="cap-grid"><div style="color:var(--gray);font-size:0.85rem;">Loading...</div></div>
+  </div>
+
+  <!-- Controls Bar -->
+  <div class="panel" id="controls-panel" style="grid-column:2;">
+    <div id="controls">
+      <button id="stop-btn" disabled onclick="stopCapability()">&#9632; STOP</button>
+      <span id="running-label">No capability running</span>
+    </div>
+  </div>
+
+  <!-- Log Panel -->
+  <div class="panel" id="log-panel">
+    <div id="log-header">
+      <div class="panel-title" style="margin:0;">LOG</div>
+      <button id="clear-btn" onclick="clearLog()">Clear</button>
+    </div>
+    <div id="log"></div>
+  </div>
+
+</div>
+
+<script>
+let currentRunId = null;
+let currentCard  = null;
+let evtSource    = null;
+
+// ── Health ────────────────────────────────────────────────────────────────────
+async function fetchHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    const badge = document.getElementById('mode-badge');
+    if (d.offline_mode) {
+      badge.textContent = 'OFFLINE MODE';
+      badge.style.color = '#f5a623';
+    } else {
+      badge.textContent = 'LIVE MODE';
+      badge.style.color = '#00d4aa';
+    }
+    const dot  = document.getElementById('dot-conn');
+    const val  = document.getElementById('val-conn');
+    if (d.offline_mode) {
+      dot.className = 'dot yellow';
+      val.textContent = 'OFFLINE';
+    } else if (d.connected) {
+      dot.className = 'dot green';
+      val.textContent = 'OK';
+    } else {
+      dot.className = 'dot red';
+      val.textContent = 'NO SIGNAL';
+    }
+    document.getElementById('imu-roll').textContent  = d.imu.roll  + ' rad';
+    document.getElementById('imu-pitch').textContent = d.imu.pitch + ' rad';
+    document.getElementById('imu-yaw').textContent   = d.imu.yaw   + ' rad';
+    document.getElementById('j-left').textContent    = d.joints.left_shoulder  + ' rad';
+    document.getElementById('j-right').textContent   = d.joints.right_shoulder + ' rad';
+  } catch(e) {}
+}
+
+// ── Capabilities ──────────────────────────────────────────────────────────────
+async function fetchCapabilities() {
+  try {
+    const r = await fetch('/api/capabilities');
+    const caps = await r.json();
+    const grid = document.getElementById('cap-grid');
+    grid.innerHTML = '';
+    caps.forEach(cap => {
+      const card = document.createElement('div');
+      card.className = 'cap-card';
+      card.dataset.script = cap.script;
+      card.innerHTML = `
+        <div class="cap-icon">${cap.icon}</div>
+        <div class="cap-name">${cap.name}</div>
+        <div class="cap-desc">${cap.description}</div>`;
+      card.addEventListener('click', () => runCapability(card, cap.script));
+      grid.appendChild(card);
+    });
+  } catch(e) {}
+}
+
+// ── Run ───────────────────────────────────────────────────────────────────────
+async function runCapability(card, script) {
+  if (currentRunId) return;
+  try {
+    const r = await fetch('/api/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({script})
+    });
+    const d = await r.json();
+    if (d.error) { appendLog('Error: ' + d.error); return; }
+    currentRunId = d.run_id;
+    currentCard  = card;
+    card.classList.add('active');
+    document.querySelectorAll('.cap-card').forEach(c => { if (c !== card) c.classList.add('disabled'); });
+    const stopBtn = document.getElementById('stop-btn');
+    stopBtn.disabled = false;
+    document.getElementById('running-label').textContent = 'Running: ' + card.querySelector('.cap-name').textContent;
+    startStream(d.run_id);
+  } catch(e) { appendLog('Network error'); }
+}
+
+function startStream(runId) {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource('/api/output/' + runId);
+  evtSource.onmessage = (e) => {
+    if (e.data === '[done]') { clearActiveState(); evtSource.close(); return; }
+    appendLog(e.data);
+  };
+  evtSource.onerror = () => { clearActiveState(); evtSource.close(); };
+}
+
+// ── Stop ──────────────────────────────────────────────────────────────────────
+async function stopCapability() {
+  try { await fetch('/api/stop', {method: 'POST'}); } catch(e) {}
+  if (evtSource) { evtSource.close(); evtSource = null; }
+  clearActiveState();
+  appendLog('Stopped.');
+}
+
+function clearActiveState() {
+  currentRunId = null;
+  if (currentCard) { currentCard.classList.remove('active'); currentCard = null; }
+  document.querySelectorAll('.cap-card').forEach(c => c.classList.remove('disabled'));
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('running-label').textContent = 'No capability running';
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+function appendLog(msg) {
+  const log = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  const ts = new Date().toLocaleTimeString('en-US', {hour12: false});
+  line.textContent = '[' + ts + '] ' + msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+function clearLog() {
+  document.getElementById('log').innerHTML = '';
+}
+
+// ── Controls panel responsive grid fix ───────────────────────────────────────
+function fixGrid() {
+  const ctrl = document.getElementById('controls-panel');
+  const log  = document.getElementById('log-panel');
+  if (window.innerWidth <= 640) {
+    ctrl.style.gridColumn = '1';
+    log.style.gridColumn  = '1';
+  } else {
+    ctrl.style.gridColumn = '2';
+    log.style.gridColumn  = '2';
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+fetchHealth();
+fetchCapabilities();
+setInterval(fetchHealth, 2000);
+fixGrid();
+window.addEventListener('resize', fixGrid);
+</script>
+</body>
+</html>
