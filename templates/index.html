@@ -239,6 +239,7 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
     </div>
     <div class="section-label">Robot Mode</div>
     <div class="imu-row"><span>Mode</span><span id="robot-mode" style="color:var(--green);font-weight:700;">—</span></div>
+    <div class="imu-row"><span>Gait</span><span id="robot-gait" style="color:var(--yellow);">—</span></div>
     <div class="section-label">IMU</div>
     <div class="imu-row"><span>Roll</span><span id="imu-roll">—</span></div>
     <div class="imu-row"><span>Pitch</span><span id="imu-pitch">—</span></div>
@@ -312,6 +313,7 @@ async function fetchHealth() {
     document.getElementById('j-left').textContent    = d.joints.left_shoulder  + ' rad';
     document.getElementById('j-right').textContent   = d.joints.right_shoulder + ' rad';
     if (d.mode) document.getElementById('robot-mode').textContent = d.mode;
+    if (d.gait) document.getElementById('robot-gait').textContent = d.gait;
   } catch(e) {}
 }
 
@@ -423,7 +425,8 @@ async function saveLog() {
       body: JSON.stringify({log: lines})
     });
     const d = await r.json();
-    btn.textContent = d.ok ? '✓ Saved!' : '✗ Error';
+    if (d.ok) { btn.textContent = '✓ Saved!'; clearLog(); }
+    else { btn.textContent = '✗ Error'; }
     setTimeout(() => btn.textContent = '💾 Save Log', 2000);
   } catch(e) {
     btn.textContent = '✗ Error';

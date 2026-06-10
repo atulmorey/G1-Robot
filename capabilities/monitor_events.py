@@ -2,7 +2,7 @@
 META = {
     "name": "Monitor Events",
     "icon": "📡",
-    "description": "Live robot state — mode, velocity, gait, arm joints every 2s.",
+    "description": "Live robot state — walking mode, velocity, gait, arm joints.",
 }
 
 import sys
@@ -15,8 +15,8 @@ if not OFFLINE:
         import rclpy
         from rclpy.node import Node
         from rclpy.qos import QoSProfile, ReliabilityPolicy
+        from unitree_go.msg import SportModeState
         from unitree_hg.msg import LowState
-        from unitree_api.msg import Request, Response
         ROS_AVAILABLE = True
     except ImportError:
         ROS_AVAILABLE = False
@@ -24,18 +24,15 @@ if not OFFLINE:
 else:
     ROS_AVAILABLE = False
 
-MODE_NAMES = {
+SPORT_MODES = {
     0: "IDLE", 1: "BALANCE_STAND", 2: "POSE", 3: "LOCOMOTION",
-    5: "JOINT_LOCK", 6: "DAMPING", 7: "RECOVERY_STAND", 9: "SIT"
+    5: "LIE_DOWN", 6: "JOINT_LOCK", 7: "DAMPING", 8: "RECOVERY_STAND",
+    9: "RESERVE", 10: "SIT", 11: "FRONT_FLIP", 12: "FRONT_JUMP",
 }
 
-SPORT_API_NAMES = {
-    1001: "CHECK_MODE", 1002: "SELECT_MODE", 1003: "RELEASE_MODE",
-    1004: "STAND_UP", 1005: "STOP_MOVE", 1006: "BALANCE_STAND",
-    1007: "DAMP", 1008: "RECOVERY_STAND", 1009: "SIT",
-    1016: "HELLO/WAVE", 1017: "STRETCH", 1019: "SCRAPE",
-    1020: "FRONT_FLIP", 1021: "FRONT_JUMP",
-    7101: "SET_FSM_ID", 7105: "SET_VELOCITY", 7106: "ARM_TASK",
+GAIT_TYPES = {
+    0: "idle", 1: "trot", 2: "run", 3: "climb_stair",
+    4: "forward_down_stair", 9: "adjust"
 }
 
 
@@ -48,7 +45,7 @@ def main():
         print(f"[{ts()}] OFFLINE — simulated events:")
         for i in range(5):
             time.sleep(2)
-            print(f"[{ts()}] JOINT_LOCK  L_arm=0.08  R_arm=-0.09")
+            print(f"[{ts()}] BALANCE_STAND  vx=0.00  vy=0.00  gait=idle  L_arm=0.08")
         return
 
     rclpy.init()
@@ -56,53 +53,47 @@ def main():
     class MonitorNode(Node):
         def __init__(self):
             super().__init__("monitor_events_node")
-            qos_be  = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
-            qos_rel = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
-            self.state = None
+            qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
+            self.sport = None
+            self.low = None
             self.prev_mode = None
-            self.prev_joints = None
+            self.prev_gait = None
 
-            self.create_subscription(LowState, "/lf/lowstate", self._state_cb, qos_be)
-            self.create_subscription(Request, "/api/sport/request",
-                self._sport_req_cb, qos_rel)
-            self.create_subscription(Request, "/api/motion_switcher/request",
-                self._switch_req_cb, qos_rel)
-
-            print(f"[{ts()}] Monitoring started — watching state + API calls")
-
-        def _state_cb(self, msg):
-            self.state = msg
-
-        def _sport_req_cb(self, msg):
-            api_id = msg.header.identity.api_id
-            name = SPORT_API_NAMES.get(api_id, f"api_id={api_id}")
-            print(f"[{ts()}] → SPORT API: {name} ({api_id})")
-
-        def _switch_req_cb(self, msg):
-            api_id = msg.header.identity.api_id
-            name = SPORT_API_NAMES.get(api_id, f"api_id={api_id}")
-            param = msg.parameter[:40] if msg.parameter else ""
-            print(f"[{ts()}] → SWITCHER: {name} {param}")
+            self.create_subscription(SportModeState, "/lf/sportmodestate",
+                                     lambda m: setattr(self, 'sport', m), qos)
+            self.create_subscription(LowState, "/lf/lowstate",
+                                     lambda m: setattr(self, 'low', m), qos)
+            print(f"[{ts()}] Monitoring started — robot state every 2s")
 
         def print_state(self):
-            if not self.state:
-                print(f"[{ts()}] No data — is robot connected?")
+            if not self.sport:
+                print(f"[{ts()}] No sport data yet...")
                 return
-            s = self.state
-            mode = int(s.mode_machine)
-            mode_name = MODE_NAMES.get(mode, f"mode_{mode}")
-            ls = round(s.motor_state[15].q, 3)
-            rs = round(s.motor_state[22].q, 3)
-            pitch = round(s.imu_state.rpy[1], 3)
+
+            s = self.sport
+            mode = int(s.mode)
+            gait = int(s.gait_type)
+            mode_name = SPORT_MODES.get(mode, f"mode_{mode}")
+            gait_name = GAIT_TYPES.get(gait, f"gait_{gait}")
+            vx = round(s.velocity[0], 3)
+            vy = round(s.velocity[1], 3)
+            omega = round(s.yaw_speed, 3)
+            height = round(s.body_height, 3)
+
+            # Arm joints from LowState
+            la = round(self.low.motor_state[15].q, 3) if self.low else "?"
+            ra = round(self.low.motor_state[22].q, 3) if self.low else "?"
 
             if mode != self.prev_mode:
                 print(f"[{ts()}] *** MODE → {mode_name} ({mode}) ***")
                 self.prev_mode = mode
 
-            joints = (ls, rs)
-            if joints != self.prev_joints:
-                print(f"[{ts()}] ARM: L={ls}  R={rs}  pitch={pitch}")
-                self.prev_joints = joints
+            if gait != self.prev_gait:
+                print(f"[{ts()}] *** GAIT → {gait_name} ({gait}) ***")
+                self.prev_gait = gait
+
+            print(f"[{ts()}] {mode_name}  vx={vx}  vy={vy}  ω={omega}  "
+                  f"gait={gait_name}  h={height}  L_arm={la}  R_arm={ra}")
 
     node = MonitorNode()
     try:

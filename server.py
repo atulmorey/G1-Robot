@@ -23,6 +23,7 @@ if not OFFLINE:
         from rclpy.node import Node as _RosNode
         from rclpy.qos import QoSProfile, ReliabilityPolicy
         from unitree_hg.msg import LowState
+        from unitree_go.msg import SportModeState
         ROS_AVAILABLE = True
     except ImportError:
         ROS_AVAILABLE = False
@@ -53,11 +54,29 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
         if ROS_AVAILABLE:
             qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
             self.create_subscription(LowState, "/lf/lowstate", self._state_cb, qos)
+            self.create_subscription(SportModeState, "/lf/sportmodestate",
+                                     self._sport_cb, qos)
+        self._sport_mode = "—"
+        self._gait = "—"
+
+    SPORT_MODES = {
+        0: "IDLE", 1: "BALANCE_STAND", 2: "POSE", 3: "LOCOMOTION",
+        5: "LIE_DOWN", 6: "JOINT_LOCK", 7: "DAMPING", 8: "RECOVERY_STAND",
+        10: "SIT", 11: "FRONT_FLIP"
+    }
+
+    GAIT_TYPES = {
+        0: "idle", 1: "trot", 2: "run", 3: "climb", 4: "down_stair", 9: "adjust"
+    }
 
     MODE_NAMES = {
         0: "IDLE", 1: "BALANCE_STAND", 2: "POSE", 3: "LOCOMOTION",
         5: "JOINT_LOCK", 6: "DAMPING", 7: "RECOVERY_STAND", 9: "SIT"
     }
+
+    def _sport_cb(self, msg):
+        self._sport_mode = self.SPORT_MODES.get(int(msg.mode), f"mode_{msg.mode}")
+        self._gait = self.GAIT_TYPES.get(int(msg.gait_type), f"gait_{msg.gait_type}")
 
     def _state_cb(self, msg):
         now = time.time()
@@ -67,8 +86,9 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
             self._state = {
                 "connected": True,
                 "offline_mode": False,
-                "mode": self.MODE_NAMES.get(mode, f"mode_{mode}"),
+                "mode": self._sport_mode,
                 "mode_id": mode,
+                "gait": self._gait,
                 "imu": {
                     "roll":  round(float(msg.imu_state.rpy[0]), 3),
                     "pitch": round(float(msg.imu_state.rpy[1]), 3),
