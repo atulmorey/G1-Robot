@@ -2,7 +2,7 @@
 # Robot Control App — Desktop Launcher
 
 cd /home/john/G1-Robot
-git pull -q
+git fetch origin -q && git reset --hard origin/main -q
 
 # Kill any existing server on port 5000
 pkill -f "server.py" 2>/dev/null
