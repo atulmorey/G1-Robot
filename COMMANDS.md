@@ -1,7 +1,7 @@
 # Commands — Run these in Ubuntu terminal
 
 ```bash
-cd ~/G1-Robot && git stash && git pull
-cp ~/G1-Robot/RobotControlOffline.desktop ~/Desktop/RobotControl.desktop
-chmod +x ~/Desktop/RobotControl.desktop
+grep -c "savelog" ~/G1-Robot/templates/index.html
+wc -c ~/G1-Robot/templates/index.html
+grep "template_folder\|TEMPLATES" ~/G1-Robot/server.py | head -5
 ```
