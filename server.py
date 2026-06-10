@@ -96,7 +96,6 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
 
     def start(self):
         if ROS_AVAILABLE:
-            rclpy.init()
             t = threading.Thread(target=self.spin, daemon=True)
             t.start()
 
@@ -272,6 +271,8 @@ def api_shutdown():
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    if ROS_AVAILABLE:
+        rclpy.init()
     health_monitor.start()
     mode = "OFFLINE" if OFFLINE else "LIVE"
     print(f"[Robot Control] Starting in {mode} mode")
