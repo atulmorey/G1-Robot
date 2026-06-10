@@ -3,5 +3,5 @@
 ```bash
 source ~/unitree_ros2/setup.sh
 source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-ros2 interface list | grep unitree_hg
+ros2 interface show unitree_go/msg/SportModeState
 ```
