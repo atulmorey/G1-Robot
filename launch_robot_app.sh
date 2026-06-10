@@ -20,6 +20,14 @@ route add -net 224.0.0.0 netmask 240.0.0.0 dev eno1 2>/dev/null || true
 source /home/john/unitree_ros2/setup.sh >> $LOG 2>&1
 source /home/john/unitree_ros2/cyclonedds_ws/install/setup.bash >> $LOG 2>&1
 
+# Export so subprocesses inherit
+export ROS_DISTRO=humble
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export CYCLONEDDS_URI=/home/john/cyclone_g1.xml
+export AMENT_PREFIX_PATH
+export LD_LIBRARY_PATH
+export PYTHONPATH
+
 # Start server and capture output
 /usr/bin/python3 /home/john/G1-Robot/server.py >> $LOG 2>&1 &
 SERVER_PID=$!
