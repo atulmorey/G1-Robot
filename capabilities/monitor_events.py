@@ -63,28 +63,40 @@ def main():
 
     last_state = {}
 
+    mode_names = {
+        0: "IDLE", 1: "BALANCE_STAND", 2: "POSE",
+        3: "LOCOMOTION", 5: "JOINT_LOCK", 6: "DAMPING",
+        7: "RECOVERY_STAND", 9: "SIT", 10: "FRONT_FLIP"
+    }
+
     def state_handler(msg):
         mode = msg.mode_machine
-        key = "mode_machine"
-        if last_state.get(key) != mode:
-            last_state[key] = mode
-            mode_names = {
-                0: "IDLE", 1: "BALANCE_STAND", 2: "POSE",
-                3: "LOCOMOTION", 5: "JOINT_LOCK", 6: "DAMPING",
-                7: "RECOVERY_STAND", 9: "SIT", 10: "FRONT_FLIP"
-            }
-            name = mode_names.get(mode, f"mode={mode}")
-            print(f"[{ts()}] 🤖 MODE CHANGE → {name} ({mode})")
+        last_state["mode"] = mode
+        last_state["imu_pitch"] = round(msg.imu_state.rpy[1], 3)
+        last_state["tick"] = msg.tick
 
     sub = ChannelSubscriber("lowstate", LowState_)
     sub.Init(state_handler, 10)
 
-    print(f"[{ts()}] Monitoring robot state changes... (click Stop to end)")
-    print(f"[{ts()}] Use controller or web app buttons — mode changes appear here")
+    print(f"[{ts()}] Monitoring robot... (click Stop to end)")
+    print(f"[{ts()}] Printing state every 3 seconds")
 
+    prev_mode = None
     try:
         while True:
-            time.sleep(0.5)
+            time.sleep(3)
+            mode = last_state.get("mode")
+            pitch = last_state.get("imu_pitch", "?")
+            tick = last_state.get("tick", 0)
+            if mode is None:
+                print(f"[{ts()}] No data — is robot on?")
+            else:
+                name = mode_names.get(mode, f"unknown({mode})")
+                if mode != prev_mode:
+                    print(f"[{ts()}] *** MODE CHANGE → {name} ({mode}) ***")
+                    prev_mode = mode
+                else:
+                    print(f"[{ts()}] mode={name}({mode})  pitch={pitch}  tick={tick}")
     except KeyboardInterrupt:
         pass
 
