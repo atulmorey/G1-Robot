@@ -1,7 +1,5 @@
-# Commands — Run these in Ubuntu terminal
+# Commands
 
 ```bash
-source ~/unitree_ros2/setup.sh
-source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-ros2 interface show unitree_go/msg/SportModeState
+source ~/unitree_ros2/setup.sh && source ~/unitree_ros2/cyclonedds_ws/install/setup.bash && ros2 interface show unitree_go/msg/SportModeState
 ```
