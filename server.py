@@ -209,6 +209,8 @@ def scan_capabilities():
 
 
 # ── Flask routes ──────────────────────────────────────────────────────────────
+if ROS_AVAILABLE:
+    rclpy.init()
 health_monitor = HealthMonitor()
 process_manager = ProcessManager()
 
@@ -271,8 +273,6 @@ def api_shutdown():
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    if ROS_AVAILABLE:
-        rclpy.init()
     health_monitor.start()
     mode = "OFFLINE" if OFFLINE else "LIVE"
     print(f"[Robot Control] Starting in {mode} mode")
