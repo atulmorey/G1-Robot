@@ -1,5 +1,5 @@
 # Commands
 
 ```bash
-grep -r "SetArmTask\|set_arm_task\|arm_task" ~/ros2_ws/src/unitree_ros2/example/src/ --include="*.cpp" | head -20
+grep -i "arm\|hand\|gesture" ~/ros2_ws/src/unitree_ros2/example/src/src/g1/high_level/loco_client_example.cpp | head -20
 ```
