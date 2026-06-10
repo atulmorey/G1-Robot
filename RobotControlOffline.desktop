@@ -1,8 +1,8 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Robot Control (Offline)
-Comment=Launch G1 Robot Control App in offline mode
+Name=Robot Control
+Comment=Launch G1 Robot Control App
 Exec=bash /home/john/G1-Robot/launch_robot_app.sh
 Icon=utilities-terminal
 Terminal=true

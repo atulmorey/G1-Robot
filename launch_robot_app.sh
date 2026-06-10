@@ -8,8 +8,12 @@ git pull -q
 LOG=/home/john/robot_app.log
 echo "=== Starting $(date) ===" > $LOG
 
+# Source ROS environment
+source /home/john/unitree_ros2/setup.sh >> $LOG 2>&1
+source /home/john/unitree_ros2/cyclonedds_ws/install/setup.bash >> $LOG 2>&1
+
 # Start server and capture output
-/usr/bin/python3 /home/john/G1-Robot/server.py --offline >> $LOG 2>&1 &
+/usr/bin/python3 /home/john/G1-Robot/server.py >> $LOG 2>&1 &
 SERVER_PID=$!
 echo "Server PID: $SERVER_PID" >> $LOG
 
