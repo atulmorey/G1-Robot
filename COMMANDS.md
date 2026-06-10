@@ -1,7 +1,8 @@
 # Commands — Run these in Ubuntu terminal
 
 ```bash
-grep -c "savelog" ~/G1-Robot/templates/index.html
-wc -c ~/G1-Robot/templates/index.html
-grep "template_folder\|TEMPLATES" ~/G1-Robot/server.py | head -5
+ls ~/G1-Robot/templates/
+find ~/G1-Robot/templates -name "*.cache" -o -name "__pycache__" 2>/dev/null
+curl -s http://localhost:5000 | grep -c "savelog"
+curl -s http://localhost:5000 | wc -c
 ```
