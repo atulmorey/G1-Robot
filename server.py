@@ -157,6 +157,25 @@ class ProcessManager:
             self._output.append(line.rstrip())
         self._proc.stdout.close()
 
+    def run_shell(self, script):
+        with self._lock:
+            if self._proc and self._proc.poll() is None:
+                return None, "already_running"
+            self._output.clear()
+            run_id = uuid.uuid4().hex[:8]
+            self._run_id = run_id
+            env = os.environ.copy()
+            self._proc = subprocess.Popen(
+                ["bash", "-c", script],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
+        threading.Thread(target=self._reader, daemon=True).start()
+        return run_id, None
+
     def stop(self):
         with self._lock:
             if self._proc and self._proc.poll() is None:
@@ -288,6 +307,30 @@ def api_status():
 def api_force_stop():
     process_manager.stop()
     return jsonify({"ok": True})
+
+
+@app.route("/api/runcommands", methods=["POST"])
+def api_runcommands():
+    import re
+    repo = os.path.dirname(__file__)
+    # Pull latest
+    subprocess.run(["git", "fetch", "origin", "-q"], cwd=repo, capture_output=True)
+    subprocess.run(["git", "reset", "--hard", "origin/main", "-q"], cwd=repo, capture_output=True)
+    # Parse bash blocks from COMMANDS.md
+    cmd_file = os.path.join(repo, "COMMANDS.md")
+    if not os.path.exists(cmd_file):
+        return jsonify({"error": "COMMANDS.md not found"}), 404
+    with open(cmd_file) as f:
+        content = f.read()
+    blocks = re.findall(r"```bash\n(.*?)```", content, re.DOTALL)
+    if not blocks:
+        return jsonify({"error": "No bash blocks found in COMMANDS.md"}), 400
+    # Combine all blocks into one script
+    script = "\n".join(blocks)
+    run_id, err = process_manager.run_shell(script)
+    if err:
+        return jsonify({"error": err}), 400
+    return jsonify({"run_id": run_id})
 
 
 @app.route("/api/savelog", methods=["POST"])
