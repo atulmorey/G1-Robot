@@ -260,6 +260,16 @@ def api_status():
     return jsonify({"status": process_manager.status()})
 
 
+@app.route("/api/shutdown", methods=["POST"])
+def api_shutdown():
+    process_manager.stop()
+    def _shutdown():
+        time.sleep(0.5)
+        os._exit(0)
+    threading.Thread(target=_shutdown, daemon=True).start()
+    return jsonify({"ok": True})
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     health_monitor.start()

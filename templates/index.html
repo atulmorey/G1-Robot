@@ -154,6 +154,19 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
 }
 #stop-btn:not(:disabled) { opacity: 1; }
 #stop-btn:not(:disabled):hover { filter: brightness(1.15); }
+#shutdown-btn {
+  background: #2d1a2e;
+  color: #e94560;
+  border: 1px solid #e94560;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background 0.2s;
+}
+#shutdown-btn:hover { background: #4a1a2e; }
 #running-label { font-size: 0.85rem; color: var(--gray); }
 
 /* Log panel */
@@ -230,6 +243,7 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
     <div id="controls">
       <button id="stop-btn" disabled onclick="stopCapability()">&#9632; STOP</button>
       <span id="running-label">No capability running</span>
+      <button id="shutdown-btn" onclick="shutdownServer()">⏻ Shut Down Server</button>
     </div>
   </div>
 
@@ -376,6 +390,14 @@ function fixGrid() {
     ctrl.style.gridColumn = '2';
     log.style.gridColumn  = '2';
   }
+}
+
+// ── Shutdown ──────────────────────────────────────────────────────────────────
+async function shutdownServer() {
+  if (!confirm('Shut down the server? You will need to restart it manually.')) return;
+  appendLog('Shutting down server...');
+  try { await fetch('/api/shutdown', {method: 'POST'}); } catch(e) {}
+  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:Helvetica;font-size:1.2rem;">Server stopped. Double-click the desktop icon to restart.</div>';
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

@@ -1,17 +1,22 @@
 # Commands — Run these in Ubuntu terminal
 
-## Pull latest (gets new capability buttons)
+## Pull latest
 ```bash
 cd ~/G1-Robot && git pull
 ```
 
-## Restart web app to pick up new capabilities
+## Make launcher executable
 ```bash
-source ~/unitree_ros2/setup.sh
-source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
-python3 ~/G1-Robot/server.py
+chmod +x ~/G1-Robot/launch_robot_app.sh
 ```
 
-## Then open browser at:
-# http://localhost:5000
-# You should see two updated buttons: "Detect Objects" and "Touch Object"
+## Create desktop shortcut
+```bash
+cp ~/G1-Robot/launch_robot_app.sh ~/Desktop/RobotControl.sh
+chmod +x ~/Desktop/RobotControl.sh
+```
+
+## Test it now (or just double-click the desktop icon after)
+```bash
+bash ~/G1-Robot/launch_robot_app.sh
+```
