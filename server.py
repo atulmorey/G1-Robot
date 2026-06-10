@@ -213,12 +213,10 @@ def scan_capabilities():
 if ROS_AVAILABLE:
     try:
         rclpy.init()
-    except Exception:
-        try:
-            rclpy.shutdown()
-        except Exception:
-            pass
-        rclpy.init()
+    except Exception as e:
+        print(f"[Robot Control] ROS init failed ({e}) — falling back to OFFLINE mode")
+        ROS_AVAILABLE = False
+        OFFLINE = True
 health_monitor = HealthMonitor()
 process_manager = ProcessManager()
 

@@ -13,6 +13,9 @@ sleep 4
 LOG=/home/john/robot_app.log
 echo "=== Starting $(date) ===" > $LOG
 
+# Fix multicast route (silently, in case Ethernet not connected yet)
+route add -net 224.0.0.0 netmask 240.0.0.0 dev eno1 2>/dev/null || true
+
 # Source ROS environment
 source /home/john/unitree_ros2/setup.sh >> $LOG 2>&1
 source /home/john/unitree_ros2/cyclonedds_ws/install/setup.bash >> $LOG 2>&1
