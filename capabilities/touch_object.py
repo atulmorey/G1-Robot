@@ -200,25 +200,30 @@ def main():
 
     print(f"Target: x={target[0]:.2f}m  y={target[1]:.2f}m  z={target[2]:.2f}m")
 
-    # Step 1 — activate arm via sport API task_id=2
-    print("Activating arm (task_id=2)...")
+    # Step 1 — activate arm control mode via task_id=2
+    print("Activating arm control (task_id=2)...")
     code = node.send_arm_task(2)
     print(f"Arm task response: {code}")
     time.sleep(1.5)
 
-    # Step 2 — fine-tune toward object using known task_id=2 joint positions as base
-    # Adjust shoulder pitch based on object Z height relative to arm position
-    joints = dict(ARM_TASK_2_JOINTS)
+    # Step 2 — full extension toward object
     tz = float(target[2])
     ty = float(target[1])
+    tx = float(target[0])
 
-    # Adjust pitch down/up based on object height difference from arm rest position
-    joints[LEFT_SHOULDER_PITCH] = float(np.clip(0.292 + (tz - 1.0) * 0.3, 0.0, 0.8))
-    joints[LEFT_SHOULDER_ROLL]  = float(np.clip(0.218 - ty * 0.1, 0.1, 0.6))
+    # Full reach: higher pitch, straighter elbow, roll toward object
+    joints = {
+        LEFT_SHOULDER_PITCH: float(np.clip(0.5 + (tz - 0.9) * 0.4, 0.2, 1.0)),
+        LEFT_SHOULDER_ROLL:  float(np.clip(0.3 - ty * 0.08, 0.1, 0.7)),
+        LEFT_SHOULDER_YAW:   float(np.clip(tx * 0.2, -0.3, 0.3)),
+        LEFT_ELBOW:          float(np.clip(0.3 + (1.2 - tz) * 0.5, 0.1, 0.8)),
+    }
 
-    print(f"Fine-tuned joints: pitch={joints[LEFT_SHOULDER_PITCH]:.3f}  roll={joints[LEFT_SHOULDER_ROLL]:.3f}")
+    print(f"Full extension joints: pitch={joints[LEFT_SHOULDER_PITCH]:.3f} "
+          f"roll={joints[LEFT_SHOULDER_ROLL]:.3f} "
+          f"elbow={joints[LEFT_ELBOW]:.3f}")
     print("Moving arm to target...")
-    node.send_joints(joints, duration=2.0)
+    node.send_joints(joints, duration=3.0)
 
     print("Holding 1 second...")
     time.sleep(1.0)
