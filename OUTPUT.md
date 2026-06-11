@@ -1,123 +1,37 @@
-john@john-Precision-7530:~/G1-Robot$ sed -n '80,200p' ~/ros2_ws/src/unitree_ros2/example/src/src/g1/high_level/loco_client_example.cpp
-      if (arg_pair.first == "get_swing_height") {
-        float swing_height = NAN;
-        auto ret = client_.GetSwingHeight(swing_height);
-        if (!handleActionError(ret)) {
-          RCLCPP_ERROR(this->get_logger(), "GetSwingHeight failed");
-          continue;
-        }
-        RCLCPP_INFO(this->get_logger(), "current swing_height: %f",
-                    swing_height);
-      }
+# Log Output
 
-      if (arg_pair.first == "get_stand_height") {
-        float stand_height = NAN;
-        auto ret = client_.GetStandHeight(stand_height);
-        if (!handleActionError(ret)) {
-          RCLCPP_ERROR(this->get_logger(), "GetStandHeight failed");
-          continue;
-        }
-        RCLCPP_INFO(this->get_logger(), "current stand_height: %f",
-                    stand_height);
-      }
-
-      if (arg_pair.first == "get_phase") {
-        std::vector<float> phase;
-        auto ret = client_.GetPhase(phase);
-        if (!handleActionError(ret)) {
-          RCLCPP_ERROR(this->get_logger(), "GetPhase failed");
-          continue;
-        }
-        std::stringstream ss;
-        ss << "current phase: (";
-        for (const auto &p : phase) {
-          ss << p << ", ";
-        }
-        ss << ")";
-        RCLCPP_INFO(this->get_logger(), "%s", ss.str().c_str());
-      }
-
-      if (arg_pair.first == "set_fsm_id") {
-        int fsm_id = std::stoi(arg_pair.second);
-        auto ret = client_.SetFsmId(fsm_id);
-        if (!handleActionError(ret)) {
-          RCLCPP_ERROR(this->get_logger(), "SetFsmId failed");
-          continue;
-        }
-        RCLCPP_INFO(this->get_logger(), "set fsm_id to %d", fsm_id);
-      }
-
-      if (arg_pair.first == "set_balance_mode") {
-        int balance_mode = std::stoi(arg_pair.second);
-        auto ret = client_.SetBalanceMode(balance_mode);
-        if (!handleActionError(ret)) {
-          RCLCPP_ERROR(this->get_logger(), "SetBalanceMode failed");
-          continue;
-        }
-        RCLCPP_INFO(this->get_logger(), "set balance_mode to %d", balance_mode);
-      }
-
-      if (arg_pair.first == "set_swing_height") {
-        float swing_height = std::stof(arg_pair.second);
-        auto ret = client_.SetSwingHeight(swing_height);
-        if (!handleActionError(ret)) {
-          RCLCPP_ERROR(this->get_logger(), "SetSwingHeight failed");
-          continue;
-        }
-        RCLCPP_INFO(this->get_logger(), "set swing_height to %f", swing_height);
-      }
-
-      if (arg_pair.first == "set_stand_height") {
-        float stand_height = std::stof(arg_pair.second);
-        auto ret = client_.SetStandHeight(stand_height);
-        if (!handleActionError(ret)) {
-          RCLCPP_ERROR(this->get_logger(), "SetStandHeight failed");
-          continue;
-        }
-        RCLCPP_INFO(this->get_logger(), "set stand_height to %f", stand_height);
-      }
-
-      if (arg_pair.first == "set_velocity") {
-        std::vector<float> param = stringToFloatVector(arg_pair.second);
-        auto param_size = param.size();
-        float vx = NAN;
-        float vy = NAN;
-        float omega = NAN;
-        float duration = NAN;
-        if (param_size == 3) {
-          vx = param.at(0);
-          vy = param.at(1);
-          omega = param.at(2);
-          duration = 1.F;
-        } else if (param_size == 4) {
-          vx = param.at(0);
-          vy = param.at(1);
-          omega = param.at(2);
-          duration = param.at(3);
-        } else {
-          RCLCPP_ERROR(this->get_logger(),
-                       "Invalid param size for method SetVelocity: %zu",
-                       param_size);
-          continue;
-        }
-
-        auto ret = client_.SetVelocity(vx, vy, omega, duration);
-        if (!handleActionError(ret)) {
-          RCLCPP_ERROR(this->get_logger(), "SetVelocity failed");
-          continue;
-        }
-        RCLCPP_INFO(this->get_logger(), "set velocity to %s",
-                    arg_pair.second.c_str());
-      }
-
-      if (arg_pair.first == "damp") {
-        auto ret = client_.Damp();
-        if (!handleActionError(ret)) {
-          RCLCPP_ERROR(this->get_logger(), "Damp failed");
-          continue;
-        }
-        RCLCPP_INFO(this->get_logger(), "Damp command sent");
-      }
-
-      if (arg_pair.first == "start") {
-john@john-Precision-7530:~/G1-Robot$ 
+```
+[14:08:21] === 1. ROS Topics Available ===
+[14:08:22] /armsdk
+[14:08:22] /collision_clouds
+[14:08:22] /ele_clouds
+[14:08:22] /grid_clouds
+[14:08:22] /lf/lowstate
+[14:08:22] /lf/sportmodestate
+[14:08:22] /lowstate
+[14:08:22] /lowstate_doubleimu
+[14:08:22] /no_warning_clouds
+[14:08:22] /pre_collision_clouds
+[14:08:22] /pre_safe_clouds
+[14:08:22] /safe_clouds
+[14:08:22] /sportmodestate
+[14:08:22] /utlidar/cloud_livox_mid360
+[14:08:22] /utlidar/imu_livox_mid360
+[14:08:22] /utlidar/range_info
+[14:08:22] /warning_clouds
+[14:08:22] 
+[14:08:22] === 2. Robot Connection + Mode ===
+[14:08:23] mode_machine: 5
+[14:08:23] 
+[14:08:23] === 3. Sport Mode State ===
+[14:08:23] 
+[14:08:23] === 4. Current Arm Joint Positions ===
+[14:08:24] Right arm joints:
+[14:08:24] ERROR: 'MotorState' object has no attribute 'tau'
+[14:08:24] 
+[14:08:24] === 5. LiDAR Point Cloud Check ===
+[14:08:24] LiDAR: 20064 points per scan  frame=livox_frame
+[14:08:24] LiDAR OK - ready for object detection
+[14:08:24] 
+[14:08:24] === Done. Check above for any ERRORs ===
+```
