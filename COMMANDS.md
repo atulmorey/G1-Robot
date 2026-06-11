@@ -1,5 +1,5 @@
 # Commands
 
 ```bash
-grep -A2 "RIGHT_SHOULDER_PITCH\|LEFT_SHOULDER_PITCH\|= 15\|= 22" ~/ros2_ws/src/unitree_ros2/example/src/include/g1/g1.hpp | head -20
+source ~/unitree_ros2/setup.sh && source ~/unitree_ros2/cyclonedds_ws/install/setup.bash && ~/unitree_ros2/example/install/unitree_ros2_example/bin/g1_arm_sdk_dds_example
 ```
