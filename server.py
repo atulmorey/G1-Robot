@@ -27,6 +27,7 @@ if not OFFLINE:
         from rclpy.qos import QoSProfile, ReliabilityPolicy
         from unitree_hg.msg import LowState
         from unitree_go.msg import SportModeState
+        from std_msgs.msg import String as RosString
         ROS_AVAILABLE = True
     except ImportError:
         ROS_AVAILABLE = False
@@ -64,16 +65,20 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
         }
         self._sport_mode = "—"
         self._gait = "—"
+        self._arm_action = {"holding": False, "id": 0, "name": ""}
         self._recording = False
         self._record_buffer = []
         self._record_start_time = 0.0
         self._record_counter = 0
+        self._state_cb_count = 0  # diagnostic: total callbacks since start
 
         if ROS_AVAILABLE:
             qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
             self.create_subscription(LowState, "/lf/lowstate", self._state_cb, qos)
             self.create_subscription(SportModeState, "/lf/sportmodestate",
                                      self._sport_cb, qos)
+            self.create_subscription(RosString, "/arm/action/state",
+                                     self._arm_action_cb, qos)
 
     SPORT_MODES = {
         0: "IDLE", 1: "BALANCE_STAND", 2: "POSE", 3: "LOCOMOTION",
@@ -91,6 +96,12 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
     def _sport_cb(self, msg):
         self._sport_mode = self.SPORT_MODES.get(int(msg.mode), f"mode_{msg.mode}")
         self._gait = self.GAIT_TYPES.get(int(msg.gait_type), f"gait_{msg.gait_type}")
+
+    def _arm_action_cb(self, msg):
+        try:
+            self._arm_action = _json.loads(msg.data)
+        except Exception:
+            pass
 
     def _state_cb(self, msg):
         now = time.time()
@@ -112,28 +123,30 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
                     "left_shoulder":  round(float(msg.motor_state[15].q), 3),
                     "right_shoulder": round(float(msg.motor_state[22].q), 3),
                 },
+                "arm_action": dict(self._arm_action),
                 "last_update": now,
             }
+            self._state_cb_count += 1
             if self._recording:
                 self._record_counter += 1
                 n = min(29, len(msg.motor_state))
-                if True:  # record every sample — /lf/lowstate is ~20 Hz
-                    self._record_buffer.append({
-                        "t": round(now - self._record_start_time, 4),
-                        "mode": mode,
-                        "sport": self._sport_mode,
-                        "imu": {
-                            "rpy":  [round(float(msg.imu_state.rpy[i]),  4) for i in range(3)],
-                            "acc":  [round(float(msg.imu_state.acc[i]),  4) for i in range(3)],
-                            "gyro": [round(float(msg.imu_state.gyro[i]), 4) for i in range(3)],
-                        },
-                        "joints": [
-                            [round(float(msg.motor_state[i].q),  4),
-                             round(float(msg.motor_state[i].dq), 4),
-                             round(float(getattr(msg.motor_state[i], "tau_est", 0.0)), 4)]
-                            for i in range(n)
-                        ],
-                    })
+                self._record_buffer.append({
+                    "t": round(now - self._record_start_time, 4),
+                    "mode": mode,
+                    "sport": self._sport_mode,
+                    "gesture": dict(self._arm_action),
+                    "imu": {
+                        "rpy":  [round(float(msg.imu_state.rpy[i]),  4) for i in range(3)],
+                        "acc":  [round(float(msg.imu_state.acc[i]),  4) for i in range(3)],
+                        "gyro": [round(float(msg.imu_state.gyro[i]), 4) for i in range(3)],
+                    },
+                    "joints": [
+                        [round(float(msg.motor_state[i].q),  4),
+                         round(float(msg.motor_state[i].dq), 4),
+                         round(float(getattr(msg.motor_state[i], "tau_est", 0.0)), 4)]
+                        for i in range(n)
+                    ],
+                })
 
     def start_recording(self):
         with self._lock:
@@ -152,6 +165,15 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
     def is_recording(self):
         with self._lock:
             return self._recording
+
+    def recording_stats(self):
+        with self._lock:
+            return {
+                "recording": self._recording,
+                "buffered": len(self._record_buffer),
+                "cb_count": self._state_cb_count,
+                "gesture": dict(self._arm_action),
+            }
 
     def to_dict(self):
         if OFFLINE:
@@ -308,17 +330,30 @@ def _compute_recording_summary(samples):
                 "peak_tau":  round(max(taus), 2),
             })
     transitions = []
-    prev = None
+    prev_mode = None
     for s in samples:
         cur = (s.get("mode"), s.get("sport"))
-        if cur != prev:
+        if cur != prev_mode:
             transitions.append({"t": s["t"], "mode_id": s.get("mode"), "sport_mode": s.get("sport")})
-            prev = cur
+            prev_mode = cur
+
+    # Detect gesture events from arm_action changes
+    gestures_detected = []
+    prev_gesture = None
+    for s in samples:
+        g = s.get("gesture", {})
+        name = g.get("name", "")
+        holding = g.get("holding", False)
+        if holding and name and name != prev_gesture:
+            gestures_detected.append({"t": s["t"], "name": name, "id": g.get("id", 0)})
+        prev_gesture = name if holding else None
+
     return {
         "duration_s": duration,
         "sample_count": len(samples),
         "joints_moved": joints_moved,
         "mode_transitions": transitions,
+        "gestures_detected": gestures_detected,
     }
 
 
@@ -448,8 +483,9 @@ def api_record_start():
     if OFFLINE:
         return jsonify({"ok": True, "offline": True,
                         "note": "Offline mode — no real data will be captured"})
+    stats_before = health_monitor.recording_stats()
     health_monitor.start_recording()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "cb_count_at_start": stats_before["cb_count"]})
 
 
 @app.route("/api/record/stop", methods=["POST"])
@@ -471,7 +507,8 @@ def api_record_stop():
         _json.dump({"label": label, "timestamp": ts,
                     "joint_names": JOINT_NAMES, "samples": samples}, f)
 
-    return jsonify({"ok": True, "file": filename, "samples": len(samples), "summary": summary})
+    return jsonify({"ok": True, "file": filename, "samples": len(samples), "summary": summary,
+                    "cb_count_total": health_monitor.recording_stats()["cb_count"]})
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
