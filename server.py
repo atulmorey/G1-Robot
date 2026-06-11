@@ -420,7 +420,14 @@ def api_stop():
 
 @app.route("/api/status")
 def api_status():
-    return jsonify({"status": process_manager.status(), "recording": health_monitor.is_recording()})
+    stats = health_monitor.recording_stats()
+    return jsonify({
+        "status": process_manager.status(),
+        "recording": stats["recording"],
+        "rec_samples": stats["buffered"],
+        "rec_cb_count": stats["cb_count"],
+        "gesture": stats["gesture"],
+    })
 
 
 @app.route("/api/forceStop", methods=["POST"])
