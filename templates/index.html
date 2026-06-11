@@ -103,6 +103,44 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
 }
 .imu-row span:last-child { font-weight: 600; }
 
+/* Recording indicator */
+@keyframes pulse-rec {
+  0%, 100% { box-shadow: 0 0 4px 2px rgba(233,69,96,0.6); }
+  50%       { box-shadow: 0 0 10px 4px rgba(233,69,96,0.9); }
+}
+.rec-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--gray);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.rec-dot.active {
+  background: var(--red);
+  animation: pulse-rec 1s infinite;
+}
+#rec-stop-btn:disabled { opacity: 0.4; }
+#rec-start-btn {
+  background: var(--green);
+  color: #000;
+  font-weight: 700;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+#rec-stop-btn {
+  background: var(--red);
+  color: #fff;
+  font-weight: 700;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 /* Capabilities grid */
 #cap-grid {
   display: grid;
@@ -250,6 +288,15 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
     <div class="section-label">Joints</div>
     <div class="imu-row"><span>L Shoulder (15)</span><span id="j-left">—</span></div>
     <div class="imu-row"><span>R Shoulder (22)</span><span id="j-right">—</span></div>
+    <div class="section-label">RECORDING</div>
+    <div class="status-row">
+      <div class="rec-dot" id="rec-dot"></div>
+      <span class="status-label" id="rec-status">Idle</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button id="rec-start-btn" onclick="startRecording()">&#9679; Record</button>
+      <button id="rec-stop-btn" onclick="stopRecording()" disabled>&#9632; Stop</button>
+    </div>
   </div>
 
   <!-- Capabilities Grid -->
@@ -263,8 +310,8 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
     <div id="controls">
       <button id="stop-btn" disabled onclick="stopCapability()">&#9632; STOP</button>
       <span id="running-label">No capability running</span>
-      <button id="runcmd-btn" onclick="runCommands()">▶ Run Commands</button>
-      <button id="shutdown-btn" onclick="shutdownServer()">⏻ Shut Down Server</button>
+      <button id="runcmd-btn" onclick="runCommands()">&#9654; Run Commands</button>
+      <button id="shutdown-btn" onclick="shutdownServer()">&#9211; Shut Down Server</button>
     </div>
   </div>
 
@@ -272,7 +319,7 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
   <div class="panel" id="log-panel">
     <div id="log-header">
       <div class="panel-title" style="margin:0;">LOG</div>
-      <button id="savelog-btn" onclick="saveLog()">💾 Save Log</button>
+      <button id="savelog-btn" onclick="saveLog()">&#128190; Save Log</button>
       <button id="clear-btn" onclick="clearLog()">Clear</button>
     </div>
     <div id="log"></div>
@@ -447,7 +494,7 @@ async function runCommands() {
     const d = await r.json();
     if (d.error) {
       appendLog('Error: ' + d.error);
-      btn.textContent = '▶ Run Commands';
+      btn.textContent = '► Run Commands';
       btn.disabled = false;
       return;
     }
@@ -455,11 +502,11 @@ async function runCommands() {
     document.getElementById('running-label').textContent = 'Running: Commands';
     document.getElementById('stop-btn').disabled = false;
     startStream(d.run_id);
-    btn.textContent = '▶ Run Commands';
+    btn.textContent = '► Run Commands';
     btn.disabled = false;
   } catch(e) {
     appendLog('Network error');
-    btn.textContent = '▶ Run Commands';
+    btn.textContent = '► Run Commands';
     btn.disabled = false;
   }
 }
@@ -470,6 +517,53 @@ async function shutdownServer() {
   appendLog('Shutting down server...');
   try { await fetch('/api/shutdown', {method: 'POST'}); } catch(e) {}
   document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:Helvetica;font-size:1.2rem;">Server stopped. Double-click the desktop icon to restart.</div>';
+}
+
+// ── Recording ─────────────────────────────────────────────────────────────────
+let _recording = false;
+
+async function startRecording() {
+  if (_recording) return;
+  try {
+    const r = await fetch('/api/record/start', {method: 'POST'});
+    const d = await r.json();
+    if (!d.ok) { appendLog('Recording start failed'); return; }
+    _recording = true;
+    document.getElementById('rec-dot').classList.add('active');
+    document.getElementById('rec-status').textContent = 'Recording...';
+    document.getElementById('rec-start-btn').disabled = true;
+    document.getElementById('rec-stop-btn').disabled = false;
+    appendLog('Recording started — perform gestures now');
+  } catch(e) { appendLog('Recording start error: ' + e); }
+}
+
+async function stopRecording() {
+  if (!_recording) return;
+  try {
+    const r = await fetch('/api/record/stop', {method: 'POST',
+      headers: {'Content-Type':'application/json'}, body: JSON.stringify({label:'session'})});
+    const d = await r.json();
+    _recording = false;
+    document.getElementById('rec-dot').classList.remove('active');
+    document.getElementById('rec-status').textContent = 'Idle';
+    document.getElementById('rec-start-btn').disabled = false;
+    document.getElementById('rec-stop-btn').disabled = true;
+    if (d.ok) {
+      appendLog('Recording stopped — ' + d.samples + ' samples saved to ' + (d.file || 'recordings/'));
+      if (d.summary) {
+        const s = d.summary;
+        appendLog('Duration: ' + s.duration_s + 's');
+        if (s.joints_moved && s.joints_moved.length > 0) {
+          appendLog('Joints moved: ' + s.joints_moved.map(j => j.name + '(' + j.range_deg.toFixed(1) + 'deg)').join(', '));
+        }
+        if (s.mode_transitions && s.mode_transitions.length > 1) {
+          appendLog('Mode changes: ' + s.mode_transitions.map(m => 't=' + m.t + 's mode=' + m.sport_mode).join(' → '));
+        }
+      }
+    } else {
+      appendLog('Recording stopped: ' + (d.summary && d.summary.note ? d.summary.note : 'no data'));
+    }
+  } catch(e) { appendLog('Recording stop error: ' + e); }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
