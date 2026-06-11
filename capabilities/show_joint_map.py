@@ -1,189 +1,112 @@
+#!/usr/bin/env python3
 META = {
     "name": "Joint Map",
     "icon": "🗺",
-    "description": "Shows all 29 joint positions, velocities, torques and full IMU state."
+    "description": "Prints all 29 joint positions, velocities, torques and full IMU state.",
 }
 
-import math
-import argparse
 import sys
+import math
+
+OFFLINE = "--offline" in sys.argv
+
+if not OFFLINE:
+    try:
+        import rclpy
+        from rclpy.node import Node
+        from rclpy.qos import QoSProfile, ReliabilityPolicy
+        from unitree_hg.msg import LowState
+        ROS_AVAILABLE = True
+    except ImportError:
+        ROS_AVAILABLE = False
+        OFFLINE = True
+else:
+    ROS_AVAILABLE = False
 
 JOINT_NAMES = [
     "L_hip_pitch", "L_hip_roll", "L_hip_yaw", "L_knee", "L_ankle_pitch", "L_ankle_roll",
     "R_hip_pitch", "R_hip_roll", "R_hip_yaw", "R_knee", "R_ankle_pitch", "R_ankle_roll",
     "waist_yaw", "waist_roll", "waist_pitch",
-    "L_shoulder_pitch", "L_shoulder_roll", "L_shoulder_yaw", "L_elbow",
-    "L_wrist_roll", "L_wrist_pitch", "L_wrist_yaw",
-    "R_shoulder_pitch", "R_shoulder_roll", "R_shoulder_yaw", "R_elbow",
-    "R_wrist_roll", "R_wrist_pitch", "R_wrist_yaw",
+    "L_shoulder_pitch", "L_shoulder_roll", "L_shoulder_yaw", "L_elbow", "L_wrist_roll", "L_wrist_pitch", "L_wrist_yaw",
+    "R_shoulder_pitch", "R_shoulder_roll", "R_shoulder_yaw", "R_elbow", "R_wrist_roll", "R_wrist_pitch", "R_wrist_yaw",
 ]
 
-MODE_NAMES = {
-    0: "IDLE",
-    1: "DAMPING",
-    2: "LOCK",
-    3: "STAND",
-    4: "WALK",
-    5: "STAIRS",
-    11: "FREE",
-}
+GROUPS = [
+    ("LEFT LEG",  range(0, 6)),
+    ("RIGHT LEG", range(6, 12)),
+    ("WAIST",     range(12, 15)),
+    ("LEFT ARM",  range(15, 22)),
+    ("RIGHT ARM", range(22, 29)),
+]
 
 
-def print_table(motor_states, imu, mode_machine):
-    header = f"{'IDX':>4} | {'NAME':<22} | {'q (rad)':>9} | {'q (deg)':>9} | {'dq (rad/s)':>11} | {'tau_est (Nm)':>13}"
+def print_table(motor_state):
+    header = f"{'IDX':>3}  {'NAME':<22}  {'q(rad)':>8}  {'q(deg)':>8}  {'dq(r/s)':>8}  {'tau_est(Nm)':>11}"
     sep = "-" * len(header)
-    print(sep)
-    print(header)
-    print(sep)
-    for i, name in enumerate(JOINT_NAMES):
-        ms = motor_states[i]
-        q = getattr(ms, 'q', 0.0)
-        dq = getattr(ms, 'dq', 0.0)
-        tau = getattr(ms, 'tau_est', 0.0)
-        q_deg = math.degrees(q)
-        print(f"{i:>4} | {name:<22} | {q:>9.4f} | {q_deg:>9.3f} | {dq:>11.4f} | {tau:>13.4f}")
-    print(sep)
-
-    # IMU section
-    rpy = getattr(imu, 'rpy', None)
-    acc = getattr(imu, 'accelerometer', None)
-    gyro = getattr(imu, 'gyroscope', None)
-
-    def get_xyz(obj):
-        if obj is None:
-            return 0.0, 0.0, 0.0
-        if hasattr(obj, '__getitem__'):
-            try:
-                return float(obj[0]), float(obj[1]), float(obj[2])
-            except Exception:
-                pass
-        return getattr(obj, 'x', 0.0), getattr(obj, 'y', 0.0), getattr(obj, 'z', 0.0)
-
-    if rpy is not None:
-        if hasattr(rpy, '__getitem__'):
-            try:
-                roll, pitch, yaw = float(rpy[0]), float(rpy[1]), float(rpy[2])
-            except Exception:
-                roll = getattr(rpy, 'x', 0.0)
-                pitch = getattr(rpy, 'y', 0.0)
-                yaw = getattr(rpy, 'z', 0.0)
-        else:
-            roll = getattr(rpy, 'x', 0.0)
-            pitch = getattr(rpy, 'y', 0.0)
-            yaw = getattr(rpy, 'z', 0.0)
-    else:
-        roll, pitch, yaw = 0.0, 0.0, 0.0
-
-    ax, ay, az = get_xyz(acc)
-    gx, gy, gz = get_xyz(gyro)
-
-    print()
-    print("IMU State:")
-    print(f"  RPY:  roll={roll:.4f}  pitch={pitch:.4f}  yaw={yaw:.4f} (rad)")
-    print(f"  ACC:  x={ax:.4f}  y={ay:.4f}  z={az:.4f} (m/s^2)")
-    print(f"  GYRO: x={gx:.4f}  y={gy:.4f}  z={gz:.4f} (rad/s)")
-    print()
-
-    mode_name = MODE_NAMES.get(int(mode_machine), "UNKNOWN")
-    print(f"  mode_machine: {int(mode_machine)} ({mode_name})")
-    print(sep)
+    for group_name, indices in GROUPS:
+        print(f"\n  -- {group_name} --")
+        print(f"  {header}")
+        print(f"  {sep}")
+        for i in indices:
+            if i >= len(motor_state):
+                continue
+            m = motor_state[i]
+            tau = float(getattr(m, "tau_est", getattr(m, "tau", 0.0)))
+            name = JOINT_NAMES[i] if i < len(JOINT_NAMES) else f"joint_{i}"
+            print(f"  {i:>3}  {name:<22}  {float(m.q):>8.4f}  {math.degrees(float(m.q)):>8.2f}  {float(m.dq):>8.4f}  {tau:>11.3f}")
 
 
-def run_offline():
-    print("OFFLINE MODE - simulated data")
-    print()
-
-    class FakeMotorState:
-        q = 0.0
-        dq = 0.0
-        tau_est = 0.0
-
-    class FakeRPY:
-        x = 0.0
-        y = 0.0
-        z = 0.0
-
-    class FakeAcc:
-        x = 0.0
-        y = 0.0
-        z = 0.0
-
-    class FakeGyro:
-        x = 0.0
-        y = 0.0
-        z = 0.0
-
-    class FakeIMU:
-        rpy = FakeRPY()
-        accelerometer = FakeAcc()
-        gyroscope = FakeGyro()
-
-    motor_states = [FakeMotorState() for _ in range(29)]
-    imu = FakeIMU()
-    print_table(motor_states, imu, 0)
-
-
-def run_live():
-    import rclpy
-    from rclpy.node import Node
-    from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-    from unitree_go.msg import LowState
-
-    class JointMapNode(Node):
-        def __init__(self):
-            super().__init__('joint_map_node')
-            self.msg = None
-            qos = QoSProfile(
-                reliability=ReliabilityPolicy.BEST_EFFORT,
-                durability=DurabilityPolicy.VOLATILE,
-                history=HistoryPolicy.KEEP_LAST,
-                depth=1,
-            )
-            self.sub = self.create_subscription(
-                LowState,
-                '/lf/lowstate',
-                self._cb,
-                qos,
-            )
-
-        def _cb(self, msg):
-            self.msg = msg
-
-    rclpy.init()
-    node = JointMapNode()
-
-    import time
-    deadline = time.time() + 8.0
-    while time.time() < deadline and node.msg is None:
-        rclpy.spin_once(node, timeout_sec=0.1)
-
-    if node.msg is None:
-        node.destroy_node()
-        rclpy.shutdown()
-        print("ERROR: No LowState message received on /lf/lowstate within 8 seconds.", file=sys.stderr)
-        sys.exit(1)
-
-    msg = node.msg
-    motor_states = msg.motor_state[:29]
-    imu = msg.imu_state
-    mode_machine = getattr(msg, 'mode_machine', 0)
-
-    node.destroy_node()
-    rclpy.shutdown()
-
-    print_table(motor_states, imu, mode_machine)
+def print_imu(imu):
+    print("\n  -- IMU --")
+    print(f"  RPY : roll={float(imu.rpy[0]):>8.4f}  pitch={float(imu.rpy[1]):>8.4f}  yaw={float(imu.rpy[2]):>8.4f}  rad")
+    print(f"  ACC : x={float(imu.acc[0]):>8.4f}   y={float(imu.acc[1]):>8.4f}   z={float(imu.acc[2]):>8.4f}  m/s^2")
+    print(f"  GYRO: x={float(imu.gyro[0]):>8.4f}   y={float(imu.gyro[1]):>8.4f}   z={float(imu.gyro[2]):>8.4f}  rad/s")
 
 
 def main():
-    parser = argparse.ArgumentParser(description=META["description"])
-    parser.add_argument('--offline', action='store_true', help='Print sample table with simulated zero data')
-    args = parser.parse_args()
+    if OFFLINE:
+        print("OFFLINE MODE — showing zero-state table\n")
 
-    if args.offline:
-        run_offline()
-    else:
-        run_live()
+        class FakeMotor:
+            q = 0.0; dq = 0.0; tau_est = 0.0
+
+        class FakeIMU:
+            rpy = [0.051, -0.044, 2.151]
+            acc  = [0.0, 0.0, 9.81]
+            gyro = [0.0, 0.0, 0.0]
+
+        print_table([FakeMotor()] * 29)
+        print_imu(FakeIMU())
+        return
+
+    rclpy.init()
+
+    class MapNode(Node):
+        def __init__(self):
+            super().__init__("show_joint_map")
+            qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
+            self.msg = None
+            self.create_subscription(LowState, "/lf/lowstate",
+                                     lambda m: setattr(self, "msg", m), qos)
+
+    node = MapNode()
+    print("Waiting for LowState...")
+    for _ in range(80):
+        rclpy.spin_once(node, timeout_sec=0.1)
+        if node.msg:
+            break
+
+    if not node.msg:
+        print("ERROR: No LowState received — is the robot on?")
+        rclpy.shutdown()
+        return
+
+    print(f"\n=== G1 JOINT MAP  (mode_machine={node.msg.mode_machine}) ===")
+    print_table(node.msg.motor_state)
+    print_imu(node.msg.imu_state)
+    print()
+    rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
