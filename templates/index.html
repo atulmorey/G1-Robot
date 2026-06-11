@@ -446,6 +446,7 @@ async function startRecording() {
     document.getElementById('rec-stop-btn').disabled  = false;
     appendLog('=== Recording started — perform gestures now ===');
     if (d.offline) appendLog('WARNING: offline mode — no real data captured');
+    if (d.cb_count_at_start !== undefined) appendLog('LowState callbacks before record: ' + d.cb_count_at_start + (d.cb_count_at_start === 0 ? ' (WARNING: robot not sending data — restart server)' : ' OK'));
   } catch(e) { appendLog('Recording error: ' + e); }
 }
 
@@ -466,9 +467,13 @@ async function stopRecording() {
 
     if (d.ok && d.samples > 0) {
       appendLog('=== Recording stopped: ' + d.samples + ' samples → ' + d.file + ' ===');
+      if (d.cb_count_total !== undefined) appendLog('Total LowState callbacks seen by server: ' + d.cb_count_total);
       const s = d.summary;
       if (s) {
         appendLog('Duration: ' + s.duration_s + 's');
+        if (s.gestures_detected && s.gestures_detected.length > 0) {
+          appendLog('Gestures detected: ' + s.gestures_detected.map(g => g.name + '(t=' + g.t_start + 's)').join(', '));
+        }
         if (s.joints_moved && s.joints_moved.length > 0) {
           appendLog('Joints moved:');
           s.joints_moved.forEach(j => appendLog('  [' + j.idx + '] ' + j.name + ': ' + j.range_deg.toFixed(1) + ' deg  peak_tau=' + j.peak_tau + ' Nm'));
@@ -476,8 +481,7 @@ async function stopRecording() {
           appendLog('No significant joint movement detected (>3 deg threshold)');
         }
         if (s.mode_transitions && s.mode_transitions.length > 1) {
-          appendLog('Mode transitions:');
-          s.mode_transitions.forEach(m => appendLog('  t=' + m.t + 's  mode=' + m.mode_id + '  sport=' + m.sport_mode));
+          appendLog('Mode transitions: ' + s.mode_transitions.map(m => 't=' + m.t + 's→' + m.sport_mode).join(', '));
         }
       }
     } else {
