@@ -10,6 +10,9 @@ import os
 import ast
 import uuid
 import time
+import math
+import json as _json
+import datetime
 import threading
 import subprocess
 from collections import deque
@@ -36,8 +39,16 @@ CAPABILITIES_DIR = os.path.join(os.path.dirname(__file__), "capabilities")
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
+JOINT_NAMES = [
+    "L_hip_pitch", "L_hip_roll", "L_hip_yaw", "L_knee", "L_ankle_pitch", "L_ankle_roll",
+    "R_hip_pitch", "R_hip_roll", "R_hip_yaw", "R_knee", "R_ankle_pitch", "R_ankle_roll",
+    "waist_yaw", "waist_roll", "waist_pitch",
+    "L_shoulder_pitch", "L_shoulder_roll", "L_shoulder_yaw", "L_elbow", "L_wrist_roll", "L_wrist_pitch", "L_wrist_yaw",
+    "R_shoulder_pitch", "R_shoulder_roll", "R_shoulder_yaw", "R_elbow", "R_wrist_roll", "R_wrist_pitch", "R_wrist_yaw",
+]
 
-# ── Health Monitor ────────────────────────────────────────────────────────────
+
+# ── Health Monitor ─────────────────────────────────────────────────────────────
 class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
     def __init__(self):
         if ROS_AVAILABLE:
@@ -51,24 +62,27 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
             "joints": {"left_shoulder": 0.0, "right_shoulder": 0.0},
             "last_update": 0.0,
         }
+        self._sport_mode = "—"
+        self._gait = "—"
+        self._recording = False
+        self._record_buffer = []
+        self._record_start_time = 0.0
+        self._record_counter = 0
+
         if ROS_AVAILABLE:
             qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
             self.create_subscription(LowState, "/lf/lowstate", self._state_cb, qos)
             self.create_subscription(SportModeState, "/lf/sportmodestate",
                                      self._sport_cb, qos)
-        self._sport_mode = "—"
-        self._gait = "—"
 
     SPORT_MODES = {
         0: "IDLE", 1: "BALANCE_STAND", 2: "POSE", 3: "LOCOMOTION",
         5: "LIE_DOWN", 6: "JOINT_LOCK", 7: "DAMPING", 8: "RECOVERY_STAND",
         10: "SIT", 11: "FRONT_FLIP"
     }
-
     GAIT_TYPES = {
         0: "idle", 1: "trot", 2: "run", 3: "climb", 4: "down_stair", 9: "adjust"
     }
-
     MODE_NAMES = {
         0: "IDLE", 1: "BALANCE_STAND", 2: "POSE", 3: "LOCOMOTION",
         5: "JOINT_LOCK", 6: "DAMPING", 7: "RECOVERY_STAND", 9: "SIT"
@@ -100,20 +114,54 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
                 },
                 "last_update": now,
             }
+            if self._recording:
+                self._record_counter += 1
+                if self._record_counter % 2 == 0:
+                    n = min(29, len(msg.motor_state))
+                    self._record_buffer.append({
+                        "t": round(now - self._record_start_time, 4),
+                        "mode": mode,
+                        "sport": self._sport_mode,
+                        "imu": {
+                            "rpy":  [round(float(msg.imu_state.rpy[i]),  4) for i in range(3)],
+                            "acc":  [round(float(msg.imu_state.acc[i]),  4) for i in range(3)],
+                            "gyro": [round(float(msg.imu_state.gyro[i]), 4) for i in range(3)],
+                        },
+                        "joints": [
+                            [round(float(msg.motor_state[i].q),  4),
+                             round(float(msg.motor_state[i].dq), 4),
+                             round(float(getattr(msg.motor_state[i], "tau_est", 0.0)), 4)]
+                            for i in range(n)
+                        ],
+                    })
+
+    def start_recording(self):
+        with self._lock:
+            self._record_buffer = []
+            self._recording = True
+            self._record_start_time = time.time()
+            self._record_counter = 0
+
+    def stop_recording(self):
+        with self._lock:
+            self._recording = False
+            samples = list(self._record_buffer)
+            self._record_buffer = []
+        return samples
+
+    def is_recording(self):
+        with self._lock:
+            return self._recording
 
     def to_dict(self):
         if OFFLINE:
             return {
-                "connected": False,
-                "offline_mode": True,
-                "mode": "OFFLINE",
-                "mode_id": -1,
+                "connected": False, "offline_mode": True, "mode": "OFFLINE", "mode_id": -1,
                 "imu": {"roll": 0.051, "pitch": -0.044, "yaw": 2.151},
                 "joints": {"left_shoulder": 0.080, "right_shoulder": -0.087},
                 "last_update": time.time(),
             }
         with self._lock:
-            # watchdog: no message for 3s → disconnected
             if self._last_msg_time and (time.time() - self._last_msg_time) > 3.0:
                 self._state["connected"] = False
             return dict(self._state)
@@ -127,11 +175,10 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
 
     def start(self):
         if ROS_AVAILABLE:
-            t = threading.Thread(target=self.spin, daemon=True)
-            t.start()
+            threading.Thread(target=self.spin, daemon=True).start()
 
 
-# ── Process Manager ───────────────────────────────────────────────────────────
+# ── Process Manager ────────────────────────────────────────────────────────────
 class ProcessManager:
     def __init__(self):
         self._lock = threading.Lock()
@@ -140,35 +187,23 @@ class ProcessManager:
         self._output = deque(maxlen=500)
 
     def run(self, script_name):
-        # Sanitize: only alphanumeric + underscore, no path traversal
         safe = all(c.isalnum() or c == "_" for c in script_name)
         if not safe:
             return None, "invalid_script_name"
-
         script_path = os.path.join(CAPABILITIES_DIR, script_name + ".py")
         if not os.path.isfile(script_path):
             return None, "script_not_found"
-
         with self._lock:
             if self._proc and self._proc.poll() is None:
                 return None, "already_running"
-
             self._output.clear()
             run_id = uuid.uuid4().hex[:8]
             self._run_id = run_id
-
             cmd = ["python3", script_path]
             if OFFLINE:
                 cmd.append("--offline")
-
             self._proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-            )
-
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         threading.Thread(target=self._reader, daemon=True).start()
         return run_id, None
 
@@ -184,15 +219,10 @@ class ProcessManager:
             self._output.clear()
             run_id = uuid.uuid4().hex[:8]
             self._run_id = run_id
-            env = os.environ.copy()
             self._proc = subprocess.Popen(
                 ["bash", "-c", script],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                env=env,
-            )
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1, env=os.environ.copy())
         threading.Thread(target=self._reader, daemon=True).start()
         return run_id, None
 
@@ -229,7 +259,7 @@ class ProcessManager:
         return "running" if self._proc.poll() is None else "idle"
 
 
-# ── Capability Scanner ────────────────────────────────────────────────────────
+# ── Capability Scanner ─────────────────────────────────────────────────────────
 def scan_capabilities():
     caps = []
     if not os.path.isdir(CAPABILITIES_DIR):
@@ -258,12 +288,45 @@ def scan_capabilities():
     return caps
 
 
-# ── Flask routes ──────────────────────────────────────────────────────────────
+# ── Recording summary ──────────────────────────────────────────────────────────
+def _compute_recording_summary(samples):
+    if not samples:
+        return {"note": "No data — was robot connected during recording?"}
+    duration = round(samples[-1]["t"], 2)
+    joints_moved = []
+    for i, name in enumerate(JOINT_NAMES):
+        qs = [s["joints"][i][0] for s in samples if i < len(s.get("joints", []))]
+        if len(qs) < 2:
+            continue
+        rng = max(qs) - min(qs)
+        if rng > 0.05:
+            taus = [abs(s["joints"][i][2]) for s in samples if i < len(s.get("joints", []))]
+            joints_moved.append({
+                "idx": i, "name": name,
+                "range_rad": round(rng, 3),
+                "range_deg": round(math.degrees(rng), 1),
+                "peak_tau":  round(max(taus), 2),
+            })
+    transitions = []
+    prev = None
+    for s in samples:
+        cur = (s.get("mode"), s.get("sport"))
+        if cur != prev:
+            transitions.append({"t": s["t"], "mode_id": s.get("mode"), "sport_mode": s.get("sport")})
+            prev = cur
+    return {
+        "duration_s": duration,
+        "sample_count": len(samples),
+        "joints_moved": joints_moved,
+        "mode_transitions": transitions,
+    }
+
+
+# ── Flask init ─────────────────────────────────────────────────────────────────
 if ROS_AVAILABLE:
     try:
         rclpy.init()
-    except Exception as e:
-        print(f"[Robot Control] ROS init failed — falling back to OFFLINE mode")
+    except Exception:
         ROS_AVAILABLE = False
         OFFLINE = True
 
@@ -274,9 +337,11 @@ except Exception as e:
     ROS_AVAILABLE = False
     OFFLINE = True
     health_monitor = HealthMonitor()
+
 process_manager = ProcessManager()
 
 
+# ── Routes ─────────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -320,7 +385,7 @@ def api_stop():
 
 @app.route("/api/status")
 def api_status():
-    return jsonify({"status": process_manager.status()})
+    return jsonify({"status": process_manager.status(), "recording": health_monitor.is_recording()})
 
 
 @app.route("/api/forceStop", methods=["POST"])
@@ -333,10 +398,8 @@ def api_force_stop():
 def api_runcommands():
     import re
     repo = os.path.dirname(__file__)
-    # Pull latest
     subprocess.run(["git", "fetch", "origin", "-q"], cwd=repo, capture_output=True)
     subprocess.run(["git", "reset", "--hard", "origin/main", "-q"], cwd=repo, capture_output=True)
-    # Parse bash blocks from COMMANDS.md
     cmd_file = os.path.join(repo, "COMMANDS.md")
     if not os.path.exists(cmd_file):
         return jsonify({"error": "COMMANDS.md not found"}), 404
@@ -345,9 +408,7 @@ def api_runcommands():
     blocks = re.findall(r"```bash\n(.*?)```", content, re.DOTALL)
     if not blocks:
         return jsonify({"error": "No bash blocks found in COMMANDS.md"}), 400
-    # Combine all blocks into one script
-    script = "\n".join(blocks)
-    run_id, err = process_manager.run_shell(script)
+    run_id, err = process_manager.run_shell("\n".join(blocks))
     if err:
         return jsonify({"error": err}), 400
     return jsonify({"run_id": run_id})
@@ -363,15 +424,10 @@ def api_savelog():
             f.write("# Log Output\n\n```\n")
             f.write(log_content)
             f.write("\n```\n")
-        subprocess.run(
-            ["git", "add", "OUTPUT.md"],
-            cwd=os.path.dirname(__file__), capture_output=True)
-        subprocess.run(
-            ["git", "commit", "-m", "save log"],
-            cwd=os.path.dirname(__file__), capture_output=True)
-        subprocess.run(
-            ["git", "push"],
-            cwd=os.path.dirname(__file__), capture_output=True)
+        repo = os.path.dirname(__file__)
+        subprocess.run(["git", "add", "OUTPUT.md"], cwd=repo, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "save log"], cwd=repo, capture_output=True)
+        subprocess.run(["git", "push"], cwd=repo, capture_output=True)
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -387,7 +443,38 @@ def api_shutdown():
     return jsonify({"ok": True})
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+@app.route("/api/record/start", methods=["POST"])
+def api_record_start():
+    if OFFLINE:
+        return jsonify({"ok": True, "offline": True,
+                        "note": "Offline mode — no real data will be captured"})
+    health_monitor.start_recording()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/record/stop", methods=["POST"])
+def api_record_stop():
+    data = request.get_json(silent=True) or {}
+    label = data.get("label", "session")
+    label = "".join(c for c in label if c.isalnum() or c in "_-")[:32] or "session"
+    samples = health_monitor.stop_recording()
+    summary = _compute_recording_summary(samples)
+
+    if not samples:
+        return jsonify({"ok": True, "samples": 0, "summary": summary})
+
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    recordings_dir = os.path.join(os.path.dirname(__file__), "recordings")
+    os.makedirs(recordings_dir, exist_ok=True)
+    filename = f"{ts}_{label}.json"
+    with open(os.path.join(recordings_dir, filename), "w") as f:
+        _json.dump({"label": label, "timestamp": ts,
+                    "joint_names": JOINT_NAMES, "samples": samples}, f)
+
+    return jsonify({"ok": True, "file": filename, "samples": len(samples), "summary": summary})
+
+
+# ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     health_monitor.start()
     mode = "OFFLINE" if OFFLINE else "LIVE"
