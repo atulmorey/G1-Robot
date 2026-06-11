@@ -676,6 +676,112 @@ def build_exec_summary_slide(prs):
                  font_size=Pt(17), color=C_WHITE)
 
 
+def build_week2_exec_summary_slide(prs):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    set_bg(slide, C_BG)
+    add_accent_bar(slide)
+
+    # ── Title ──
+    add_text(slide, "Week 2 — Executive Summary",
+             Inches(0.4), Inches(0.2), Inches(12), Inches(0.6),
+             font_size=Pt(32), bold=True, color=C_WHITE)
+    add_rect(slide, Inches(0.4), Inches(0.88), Inches(12.4), Inches(0.05), fill_color=C_ACCENT)
+
+    # ── Left panel: Robot Control App ──
+    LP_X = Inches(0.4)
+    LP_Y = Inches(1.0)
+    LP_W = Inches(6.1)
+    LP_H = Inches(4.6)
+
+    add_rect(slide, LP_X, LP_Y, LP_W, LP_H,
+             fill_color=C_CARD, line_color=C_GREEN, line_width=Pt(1.5))
+    add_rect(slide, LP_X, LP_Y, LP_W, Inches(0.42), fill_color=C_GREEN)
+    add_text(slide, "✓  ROBOT CONTROL APP",
+             LP_X + Inches(0.15), LP_Y + Inches(0.04),
+             LP_W - Inches(0.3), Inches(0.38),
+             font_size=Pt(14), bold=True, color=C_BG, align=PP_ALIGN.CENTER)
+
+    app_bullets = [
+        "Commands Wilson from any browser — no terminal needed",
+        "12+ robot behaviors as one-click buttons (auto-discovered)",
+        "Live dashboard: mode, joints, IMU, battery updated every 2s",
+        "Start / Stop recording captures all 29 joints during any gesture",
+        "Claude deploys code updates to robot in under 30 seconds",
+        "10 min code cycle (Week 1)  →  30 sec code cycle (Week 2)",
+    ]
+    for i, bullet in enumerate(app_bullets):
+        by = LP_Y + Inches(0.55) + i * Inches(0.66)
+        add_rect(slide, LP_X + Inches(0.2), by + Inches(0.13),
+                 Inches(0.11), Inches(0.11), fill_color=C_GREEN)
+        add_text(slide, bullet,
+                 LP_X + Inches(0.42), by,
+                 LP_W - Inches(0.6), Inches(0.55),
+                 font_size=Pt(13), color=C_LIGHT)
+
+    # ── Right panel: Data Capture Pipeline ──
+    RP_X = Inches(6.8)
+    RP_Y = Inches(1.0)
+    RP_W = Inches(6.1)
+    RP_H = Inches(4.6)
+
+    add_rect(slide, RP_X, RP_Y, RP_W, RP_H,
+             fill_color=C_CARD, line_color=C_ACCENT, line_width=Pt(1.5))
+    add_rect(slide, RP_X, RP_Y, RP_W, Inches(0.42), fill_color=C_ACCENT)
+    add_text(slide, "DATA CAPTURE PIPELINE",
+             RP_X + Inches(0.15), RP_Y + Inches(0.04),
+             RP_W - Inches(0.3), Inches(0.38),
+             font_size=Pt(14), bold=True, color=C_BG, align=PP_ALIGN.CENTER)
+
+    data_bullets = [
+        "29 joints recorded at 20 Hz — 87 data points per frame",
+        "IMU: orientation (roll/pitch/yaw) + acceleration captured",
+        "Gesture auto-labelled from robot’s own internal state",
+        "JSON dataset saved after every recording session",
+        "No manual annotation — robot labels its own movements",
+        "Foundation for autonomous behavior: gesture → trajectory → AI",
+    ]
+    for i, bullet in enumerate(data_bullets):
+        by = RP_Y + Inches(0.55) + i * Inches(0.66)
+        add_rect(slide, RP_X + Inches(0.2), by + Inches(0.13),
+                 Inches(0.11), Inches(0.11), fill_color=C_ACCENT)
+        add_text(slide, bullet,
+                 RP_X + Inches(0.42), by,
+                 RP_W - Inches(0.6), Inches(0.55),
+                 font_size=Pt(13), color=C_LIGHT)
+
+    # ── Three stat boxes ──
+    stats = [
+        ("29", "joints tracked\nper frame"),
+        ("20 Hz", "87 data points\nper second"),
+        ("5+", "gestures\nmapped"),
+    ]
+    box_w = Inches(3.5)
+    box_h = Inches(0.85)
+    box_y = Inches(5.75)
+    for i, (num, label) in enumerate(stats):
+        bx = Inches(0.4) + i * Inches(4.45)
+        add_rect(slide, bx, box_y, box_w, box_h,
+                 fill_color=RGBColor(0x0A, 0x22, 0x35),
+                 line_color=C_ACCENT, line_width=Pt(1))
+        add_text(slide, num,
+                 bx + Inches(0.1), box_y + Inches(0.05),
+                 Inches(1.2), box_h - Inches(0.1),
+                 font_size=Pt(28), bold=True, color=C_ACCENT)
+        add_text(slide, label,
+                 bx + Inches(1.35), box_y + Inches(0.1),
+                 Inches(2.0), box_h - Inches(0.15),
+                 font_size=Pt(12), color=C_LIGHT)
+
+    # ── Bottom "So What" bar ──
+    add_rect(slide, Inches(0.4), Inches(6.75), Inches(12.4), Inches(0.62),
+             fill_color=RGBColor(0x0A, 0x2E, 0x1E),
+             line_color=C_GREEN, line_width=Pt(1.5))
+    add_text(slide,
+             "NEXT:  Capture gesture trajectories  →  train arm to reproduce them  →  Phase 2 autonomous manipulation",
+             Inches(0.6), Inches(6.8), Inches(12.0), Inches(0.55),
+             font_size=Pt(15), bold=True, color=C_GREEN, align=PP_ALIGN.CENTER)
+
+
 # ── Main ─────────────────────────────────────────────────────────
 
 def main():
@@ -683,6 +789,7 @@ def main():
     prs.slide_width  = SLIDE_W
     prs.slide_height = SLIDE_H
 
+    build_week2_exec_summary_slide(prs)
     build_exec_summary_slide(prs)
     build_setup_diagram_slide(prs)
 
