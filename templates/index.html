@@ -19,7 +19,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial, sans-serif; min-height: 100vh; }
 
-/* Header */
 #header {
   background: var(--accent);
   padding: 12px 20px;
@@ -30,7 +29,6 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
   gap: 8px;
 }
 #header h1 { font-size: 1.3rem; font-weight: 700; }
-#header .sub { font-size: 0.85rem; color: var(--gray); margin-left: 10px; }
 #mode-badge {
   font-size: 0.8rem;
   font-weight: 700;
@@ -39,7 +37,6 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
   background: rgba(0,0,0,0.3);
 }
 
-/* Layout */
 #main {
   display: grid;
   grid-template-columns: 260px 1fr;
@@ -52,14 +49,12 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
   #main { grid-template-columns: 1fr; }
 }
 
-/* Panels */
 .panel {
   background: var(--panel);
   border-radius: 8px;
   padding: 14px;
 }
 
-/* Health panel */
 #health-panel { grid-row: 1 / 3; }
 @media (max-width: 640px) { #health-panel { grid-row: auto; } }
 
@@ -103,11 +98,7 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
 }
 .imu-row span:last-child { font-weight: 600; }
 
-/* Recording indicator */
-@keyframes pulse-rec {
-  0%, 100% { box-shadow: 0 0 4px 2px rgba(233,69,96,0.6); }
-  50%       { box-shadow: 0 0 10px 4px rgba(233,69,96,0.9); }
-}
+/* Recording */
 .rec-dot {
   width: 12px; height: 12px;
   border-radius: 50%;
@@ -117,31 +108,41 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
 }
 .rec-dot.active {
   background: var(--red);
+  box-shadow: 0 0 8px var(--red);
   animation: pulse-rec 1s infinite;
 }
-#rec-stop-btn:disabled { opacity: 0.4; }
+@keyframes pulse-rec {
+  0%, 100% { box-shadow: 0 0 4px var(--red); }
+  50%       { box-shadow: 0 0 12px var(--red); }
+}
 #rec-start-btn {
   background: var(--green);
   color: #000;
-  font-weight: 700;
   border: none;
   border-radius: 6px;
-  padding: 10px 20px;
-  font-size: 0.85rem;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
+  flex: 1;
 }
+#rec-start-btn:hover:not(:disabled) { filter: brightness(1.1); }
+#rec-start-btn:disabled { opacity: 0.4; cursor: default; }
 #rec-stop-btn {
   background: var(--red);
   color: #fff;
-  font-weight: 700;
   border: none;
   border-radius: 6px;
-  padding: 10px 20px;
-  font-size: 0.85rem;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
+  flex: 1;
 }
+#rec-stop-btn:hover:not(:disabled) { filter: brightness(1.15); }
+#rec-stop-btn:disabled { opacity: 0.4; cursor: default; }
 
-/* Capabilities grid */
+/* Capabilities */
 #cap-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -171,7 +172,7 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
 .cap-name { font-size: 0.85rem; font-weight: 700; }
 .cap-desc { font-size: 0.72rem; color: var(--gray); margin-top: 3px; }
 
-/* Controls bar */
+/* Controls */
 #controls {
   display: flex;
   align-items: center;
@@ -201,7 +202,6 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.2s;
 }
 #runcmd-btn:hover { background: #1f5c1f; }
 #shutdown-btn {
@@ -214,12 +214,11 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
   font-weight: 700;
   cursor: pointer;
   margin-left: auto;
-  transition: background 0.2s;
 }
 #shutdown-btn:hover { background: #4a1a2e; }
 #running-label { font-size: 0.85rem; color: var(--gray); }
 
-/* Log panel */
+/* Log */
 #log-panel { grid-column: 2; }
 @media (max-width: 640px) { #log-panel { grid-column: 1; } }
 #log-header {
@@ -288,6 +287,7 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
     <div class="section-label">Joints</div>
     <div class="imu-row"><span>L Shoulder (15)</span><span id="j-left">—</span></div>
     <div class="imu-row"><span>R Shoulder (22)</span><span id="j-right">—</span></div>
+
     <div class="section-label">RECORDING</div>
     <div class="status-row">
       <div class="rec-dot" id="rec-dot"></div>
@@ -319,7 +319,7 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
   <div class="panel" id="log-panel">
     <div id="log-header">
       <div class="panel-title" style="margin:0;">LOG</div>
-      <button id="savelog-btn" onclick="saveLog()">&#128190; Save Log</button>
+      <button id="savelog-btn" onclick="saveLog()">Save Log</button>
       <button id="clear-btn" onclick="clearLog()">Clear</button>
     </div>
     <div id="log"></div>
@@ -331,6 +331,7 @@ body { background: var(--bg); color: var(--white); font-family: Helvetica, Arial
 let currentRunId = null;
 let currentCard  = null;
 let evtSource    = null;
+let _recording   = false;
 
 // ── Health ────────────────────────────────────────────────────────────────────
 async function fetchHealth() {
@@ -345,17 +346,14 @@ async function fetchHealth() {
       badge.textContent = 'LIVE MODE';
       badge.style.color = '#00d4aa';
     }
-    const dot  = document.getElementById('dot-conn');
-    const val  = document.getElementById('val-conn');
+    const dot = document.getElementById('dot-conn');
+    const val = document.getElementById('val-conn');
     if (d.offline_mode) {
-      dot.className = 'dot yellow';
-      val.textContent = 'OFFLINE';
+      dot.className = 'dot yellow'; val.textContent = 'OFFLINE';
     } else if (d.connected) {
-      dot.className = 'dot green';
-      val.textContent = 'OK';
+      dot.className = 'dot green';  val.textContent = 'OK';
     } else {
-      dot.className = 'dot red';
-      val.textContent = 'NO SIGNAL';
+      dot.className = 'dot red';    val.textContent = 'NO SIGNAL';
     }
     document.getElementById('imu-roll').textContent  = d.imu.roll  + ' rad';
     document.getElementById('imu-pitch').textContent = d.imu.pitch + ' rad';
@@ -378,8 +376,7 @@ async function fetchCapabilities() {
       const card = document.createElement('div');
       card.className = 'cap-card';
       card.dataset.script = cap.script;
-      card.innerHTML = `
-        <div class="cap-icon">${cap.icon}</div>
+      card.innerHTML = `<div class="cap-icon">${cap.icon}</div>
         <div class="cap-name">${cap.name}</div>
         <div class="cap-desc">${cap.description}</div>`;
       card.addEventListener('click', () => runCapability(card, cap.script));
@@ -403,8 +400,7 @@ async function runCapability(card, script) {
     currentCard  = card;
     card.classList.add('active');
     document.querySelectorAll('.cap-card').forEach(c => { if (c !== card) c.classList.add('disabled'); });
-    const stopBtn = document.getElementById('stop-btn');
-    stopBtn.disabled = false;
+    document.getElementById('stop-btn').disabled = false;
     document.getElementById('running-label').textContent = 'Running: ' + card.querySelector('.cap-name').textContent;
     startStream(d.run_id);
   } catch(e) { appendLog('Network error'); }
@@ -436,92 +432,7 @@ function clearActiveState() {
   document.getElementById('running-label').textContent = 'No capability running';
 }
 
-// ── Log ───────────────────────────────────────────────────────────────────────
-function appendLog(msg) {
-  const log = document.getElementById('log');
-  const line = document.createElement('div');
-  line.className = 'log-line';
-  const ts = new Date().toLocaleTimeString('en-US', {hour12: false});
-  line.textContent = '[' + ts + '] ' + msg;
-  log.appendChild(line);
-  log.scrollTop = log.scrollHeight;
-}
-function clearLog() {
-  document.getElementById('log').innerHTML = '';
-}
-
-// ── Controls panel responsive grid fix ───────────────────────────────────────
-function fixGrid() {
-  const ctrl = document.getElementById('controls-panel');
-  const log  = document.getElementById('log-panel');
-  if (window.innerWidth <= 640) {
-    ctrl.style.gridColumn = '1';
-    log.style.gridColumn  = '1';
-  } else {
-    ctrl.style.gridColumn = '2';
-    log.style.gridColumn  = '2';
-  }
-}
-
-// ── Save Log ──────────────────────────────────────────────────────────────────
-async function saveLog() {
-  const lines = [...document.querySelectorAll('#log .log-line')].map(l => l.textContent).join('\n');
-  const btn = document.getElementById('savelog-btn');
-  btn.textContent = '⏳ Saving...';
-  try {
-    const r = await fetch('/api/savelog', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({log: lines})
-    });
-    const d = await r.json();
-    if (d.ok) { btn.textContent = '✓ Saved!'; clearLog(); }
-    else { btn.textContent = '✗ Error'; }
-    setTimeout(() => btn.textContent = '💾 Save Log', 2000);
-  } catch(e) {
-    btn.textContent = '✗ Error';
-    setTimeout(() => btn.textContent = '💾 Save Log', 2000);
-  }
-}
-
-// ── Run Commands ─────────────────────────────────────────────────────────────
-async function runCommands() {
-  const btn = document.getElementById('runcmd-btn');
-  btn.textContent = '⏳ Pulling & Running...';
-  btn.disabled = true;
-  try {
-    const r = await fetch('/api/runcommands', {method: 'POST'});
-    const d = await r.json();
-    if (d.error) {
-      appendLog('Error: ' + d.error);
-      btn.textContent = '► Run Commands';
-      btn.disabled = false;
-      return;
-    }
-    currentRunId = d.run_id;
-    document.getElementById('running-label').textContent = 'Running: Commands';
-    document.getElementById('stop-btn').disabled = false;
-    startStream(d.run_id);
-    btn.textContent = '► Run Commands';
-    btn.disabled = false;
-  } catch(e) {
-    appendLog('Network error');
-    btn.textContent = '► Run Commands';
-    btn.disabled = false;
-  }
-}
-
-// ── Shutdown ──────────────────────────────────────────────────────────────────
-async function shutdownServer() {
-  if (!confirm('Shut down the server? You will need to restart it manually.')) return;
-  appendLog('Shutting down server...');
-  try { await fetch('/api/shutdown', {method: 'POST'}); } catch(e) {}
-  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:Helvetica;font-size:1.2rem;">Server stopped. Double-click the desktop icon to restart.</div>';
-}
-
 // ── Recording ─────────────────────────────────────────────────────────────────
-let _recording = false;
-
 async function startRecording() {
   if (_recording) return;
   try {
@@ -532,42 +443,122 @@ async function startRecording() {
     document.getElementById('rec-dot').classList.add('active');
     document.getElementById('rec-status').textContent = 'Recording...';
     document.getElementById('rec-start-btn').disabled = true;
-    document.getElementById('rec-stop-btn').disabled = false;
-    appendLog('Recording started — perform gestures now');
-  } catch(e) { appendLog('Recording start error: ' + e); }
+    document.getElementById('rec-stop-btn').disabled  = false;
+    appendLog('=== Recording started — perform gestures now ===');
+    if (d.offline) appendLog('WARNING: offline mode — no real data captured');
+  } catch(e) { appendLog('Recording error: ' + e); }
 }
 
 async function stopRecording() {
   if (!_recording) return;
   try {
-    const r = await fetch('/api/record/stop', {method: 'POST',
-      headers: {'Content-Type':'application/json'}, body: JSON.stringify({label:'session'})});
+    const r = await fetch('/api/record/stop', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({label: 'session'})
+    });
     const d = await r.json();
     _recording = false;
     document.getElementById('rec-dot').classList.remove('active');
     document.getElementById('rec-status').textContent = 'Idle';
     document.getElementById('rec-start-btn').disabled = false;
-    document.getElementById('rec-stop-btn').disabled = true;
-    if (d.ok) {
-      appendLog('Recording stopped — ' + d.samples + ' samples saved to ' + (d.file || 'recordings/'));
-      if (d.summary) {
-        const s = d.summary;
+    document.getElementById('rec-stop-btn').disabled  = true;
+
+    if (d.ok && d.samples > 0) {
+      appendLog('=== Recording stopped: ' + d.samples + ' samples → ' + d.file + ' ===');
+      const s = d.summary;
+      if (s) {
         appendLog('Duration: ' + s.duration_s + 's');
         if (s.joints_moved && s.joints_moved.length > 0) {
-          appendLog('Joints moved: ' + s.joints_moved.map(j => j.name + '(' + j.range_deg.toFixed(1) + 'deg)').join(', '));
+          appendLog('Joints moved:');
+          s.joints_moved.forEach(j => appendLog('  [' + j.idx + '] ' + j.name + ': ' + j.range_deg.toFixed(1) + ' deg  peak_tau=' + j.peak_tau + ' Nm'));
+        } else {
+          appendLog('No significant joint movement detected (>3 deg threshold)');
         }
         if (s.mode_transitions && s.mode_transitions.length > 1) {
-          appendLog('Mode changes: ' + s.mode_transitions.map(m => 't=' + m.t + 's mode=' + m.sport_mode).join(' → '));
+          appendLog('Mode transitions:');
+          s.mode_transitions.forEach(m => appendLog('  t=' + m.t + 's  mode=' + m.mode_id + '  sport=' + m.sport_mode));
         }
       }
     } else {
-      appendLog('Recording stopped: ' + (d.summary && d.summary.note ? d.summary.note : 'no data'));
+      const note = (d.summary && d.summary.note) ? d.summary.note : 'no data recorded';
+      appendLog('=== Recording stopped: ' + note + ' ===');
     }
   } catch(e) { appendLog('Recording stop error: ' + e); }
 }
 
+// ── Log ───────────────────────────────────────────────────────────────────────
+function appendLog(msg) {
+  const log = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  const ts = new Date().toLocaleTimeString('en-US', {hour12: false});
+  line.textContent = '[' + ts + '] ' + msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+function fixGrid() {
+  const ctrl = document.getElementById('controls-panel');
+  const log  = document.getElementById('log-panel');
+  if (window.innerWidth <= 640) {
+    ctrl.style.gridColumn = '1'; log.style.gridColumn = '1';
+  } else {
+    ctrl.style.gridColumn = '2'; log.style.gridColumn = '2';
+  }
+}
+
+// ── Save Log ──────────────────────────────────────────────────────────────────
+async function saveLog() {
+  const lines = [...document.querySelectorAll('#log .log-line')].map(l => l.textContent).join('\n');
+  const btn = document.getElementById('savelog-btn');
+  btn.textContent = 'Saving...';
+  try {
+    const r = await fetch('/api/savelog', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({log: lines})
+    });
+    const d = await r.json();
+    btn.textContent = d.ok ? 'Saved!' : 'Error';
+    setTimeout(() => btn.textContent = 'Save Log', 2000);
+    if (d.ok) clearLog();
+  } catch(e) {
+    btn.textContent = 'Error';
+    setTimeout(() => btn.textContent = 'Save Log', 2000);
+  }
+}
+
+// ── Run Commands ──────────────────────────────────────────────────────────────
+async function runCommands() {
+  const btn = document.getElementById('runcmd-btn');
+  btn.textContent = 'Pulling & Running...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/runcommands', {method: 'POST'});
+    const d = await r.json();
+    if (d.error) { appendLog('Error: ' + d.error); }
+    else {
+      currentRunId = d.run_id;
+      document.getElementById('running-label').textContent = 'Running: Commands';
+      document.getElementById('stop-btn').disabled = false;
+      startStream(d.run_id);
+    }
+  } catch(e) { appendLog('Network error'); }
+  btn.textContent = 'Run Commands';
+  btn.disabled = false;
+}
+
+// ── Shutdown ──────────────────────────────────────────────────────────────────
+async function shutdownServer() {
+  if (!confirm('Shut down the server? You will need to restart it manually.')) return;
+  appendLog('Shutting down server...');
+  try { await fetch('/api/shutdown', {method: 'POST'}); } catch(e) {}
+  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:Helvetica;font-size:1.2rem;">Server stopped. Double-click the desktop icon to restart.</div>';
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
-// Force stop any stale process on page load
 fetch('/api/forceStop', {method: 'POST'}).catch(() => {});
 fetchHealth();
 fetchCapabilities();
