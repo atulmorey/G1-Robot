@@ -1,40 +1,72 @@
 # Commands
 
 ```bash
-echo "=== 1. SPORT MODE STATE (force unitree_hg type) ==="
-timeout 5 ros2 topic echo /lf/sportmodestate unitree_hg/msg/SportModeState --once 2>&1 | head -20 || echo "No sport mode data with hg type"
+echo "=== ARM ACTION STATE — trigger a gesture NOW (watching 10s) ==="
+timeout 10 ros2 topic echo /arm/action/state 2>&1
 
 echo ""
-echo "=== 2. SPORT MODE STATE (try unitree_go type) ==="
-timeout 5 ros2 topic echo /lf/sportmodestate unitree_go/msg/SportModeState --once 2>&1 | head -20 || echo "No sport mode data with go type"
+echo "=== CONTROLLER BUTTONS — press any button NOW (watching 5s) ==="
+timeout 5 ros2 topic echo /wirelesscontroller 2>&1 | head -40
 
 echo ""
-echo "=== 3. GESTURE RESULT TOPIC (listen 5s — trigger a gesture NOW) ==="
-timeout 5 ros2 topic echo /gesture/result 2>&1 || echo "No gesture result in 5s"
+echo "=== CURRENT RECORDINGS ==="
+ls -lah ~/G1-Robot/recordings/ 2>/dev/null || echo "No recordings yet"
 
 echo ""
-echo "=== 4. ARM ACTION STATE ==="
-timeout 3 ros2 topic echo /arm/action/state --once 2>&1 | head -10 || echo "No arm action state"
+echo "=== LATEST RECORDING SUMMARY ==="
+python3 - <<'PYEOF'
+import os, json, math
 
-echo ""
-echo "=== 5. CONTROLLER INPUT ==="
-timeout 3 ros2 topic echo /wirelesscontroller --once 2>&1 | head -20 || echo "No controller data"
+recordings_dir = os.path.expanduser("~/G1-Robot/recordings")
+if not os.path.isdir(recordings_dir):
+    print("No recordings directory yet")
+    exit()
 
-echo ""
-echo "=== 6. ODOMETRY ==="
-timeout 3 ros2 topic echo /dog_odom --once 2>&1 | head -20 || echo "No odom data"
+files = sorted([f for f in os.listdir(recordings_dir) if f.endswith('.json')])
+if not files:
+    print("No recording files yet")
+    exit()
 
-echo ""
-echo "=== 7. HAND STATE ==="
-timeout 3 ros2 topic echo /lf/dex3/right/state --once 2>&1 | head -20 || echo "No hand state"
+latest = files[-1]
+print(f"File: {latest}")
 
-echo ""
-echo "=== 8. BATTERY STATE ==="
-timeout 3 ros2 topic echo /lf/bmsstate --once 2>&1 | head -15 || echo "No BMS state"
+with open(os.path.join(recordings_dir, latest)) as f:
+    data = json.load(f)
 
-echo ""
-echo "=== 9. LOWSTATE FREQUENCY (3s sample) ==="
-timeout 3 ros2 topic hz /lf/lowstate 2>&1 | grep -E "average rate|min|max" | head -3
+samples = data.get("samples", [])
+joint_names = data.get("joint_names", [])
+print(f"Samples: {len(samples)}  Duration: {samples[-1]['t'] if samples else 0:.1f}s")
+
+if not samples:
+    print("Empty recording")
+    exit()
+
+# Gesture events
+print("\nGesture events:")
+prev = None
+for s in samples:
+    g = s.get("gesture", {})
+    name = g.get("name", "")
+    holding = g.get("holding", False)
+    if holding and name and name != prev:
+        print(f"  t={s['t']:.2f}s  gesture={name}  id={g.get('id',0)}")
+    prev = name if holding else None
+
+# Joints that moved
+print("\nJoints that moved (>3 deg):")
+moved = False
+for i, name in enumerate(joint_names):
+    qs = [s["joints"][i][0] for s in samples if i < len(s.get("joints", []))]
+    if len(qs) < 2:
+        continue
+    rng = max(qs) - min(qs)
+    if rng > 0.05:
+        taus = [abs(s["joints"][i][2]) for s in samples if i < len(s.get("joints", []))]
+        print(f"  [{i:2d}] {name:<22}  range={math.degrees(rng):5.1f}deg  peak_tau={max(taus):.2f}Nm")
+        moved = True
+if not moved:
+    print("  None detected")
+PYEOF
 
 echo ""
 echo "=== Done ==="
