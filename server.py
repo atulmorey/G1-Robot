@@ -116,8 +116,8 @@ class HealthMonitor(_RosNode if ROS_AVAILABLE else object):
             }
             if self._recording:
                 self._record_counter += 1
-                if self._record_counter % 2 == 0:
-                    n = min(29, len(msg.motor_state))
+                n = min(29, len(msg.motor_state))
+                if True:  # record every sample — /lf/lowstate is ~20 Hz
                     self._record_buffer.append({
                         "t": round(now - self._record_start_time, 4),
                         "mode": mode,
