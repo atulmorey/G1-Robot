@@ -332,6 +332,7 @@ let currentRunId = null;
 let currentCard  = null;
 let evtSource    = null;
 let _recording   = false;
+let _recPollId   = null;
 
 // ── Health ────────────────────────────────────────────────────────────────────
 async function fetchHealth() {
@@ -446,7 +447,19 @@ async function startRecording() {
     document.getElementById('rec-stop-btn').disabled  = false;
     appendLog('=== Recording started — perform gestures now ===');
     if (d.offline) appendLog('WARNING: offline mode — no real data captured');
-    if (d.cb_count_at_start !== undefined) appendLog('LowState callbacks before record: ' + d.cb_count_at_start + (d.cb_count_at_start === 0 ? ' (WARNING: robot not sending data — restart server)' : ' OK'));
+    if (d.cb_count_at_start !== undefined) appendLog('LowState callbacks before record: ' + d.cb_count_at_start + (d.cb_count_at_start === 0 ? ' ← WARNING: 0 means robot data not reaching server. Restart server.' : ' ✓'));
+    // Poll status every second to show live sample count
+    _recPollId = setInterval(async () => {
+      try {
+        const rs = await fetch('/api/status');
+        const rd = await rs.json();
+        if (rd.recording) {
+          let label = 'Recording: ' + rd.rec_samples + ' samples';
+          if (rd.gesture && rd.gesture.holding && rd.gesture.name) label += '  |  gesture: ' + rd.gesture.name;
+          document.getElementById('rec-status').textContent = label;
+        }
+      } catch(e) {}
+    }, 1000);
   } catch(e) { appendLog('Recording error: ' + e); }
 }
 
@@ -460,6 +473,7 @@ async function stopRecording() {
     });
     const d = await r.json();
     _recording = false;
+    if (_recPollId) { clearInterval(_recPollId); _recPollId = null; }
     document.getElementById('rec-dot').classList.remove('active');
     document.getElementById('rec-status').textContent = 'Idle';
     document.getElementById('rec-start-btn').disabled = false;
