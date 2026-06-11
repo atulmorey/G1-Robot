@@ -2,13 +2,12 @@
 META = {
     "name": "Touch Object",
     "icon": "🫳",
-    "description": "Detects nearest object on table and touches it with left arm.",
+    "description": "Detects object on table and reaches right arm to touch it.",
 }
 
 import sys
 import time
 import struct
-import json
 import numpy as np
 
 OFFLINE = "--offline" in sys.argv
@@ -20,7 +19,6 @@ if not OFFLINE:
         from rclpy.qos import QoSProfile, ReliabilityPolicy
         from sensor_msgs.msg import PointCloud2
         from unitree_hg.msg import LowCmd, LowState
-        from unitree_api.msg import Request, Response
         ROS_AVAILABLE = True
     except ImportError:
         ROS_AVAILABLE = False
@@ -29,28 +27,21 @@ else:
     ROS_AVAILABLE = False
 
 # ── ROI ──────────────────────────────────────────────────────────
-ROI_X_MIN = -2.0
-ROI_X_MAX = 1.0
-ROI_Y_MIN = -3.0
-ROI_Y_MAX = 3.0
-ROI_Z_MIN = 0.2
-ROI_Z_MAX = 1.2
+ROI_X_MIN = -2.0; ROI_X_MAX = 1.0
+ROI_Y_MIN = -3.0; ROI_Y_MAX = 3.0
+ROI_Z_MIN = 0.2;  ROI_Z_MAX = 1.2
 MIN_CLUSTER_POINTS = 30
 
-# ── Known arm positions from task_id=2 ──────────────────────────
-LEFT_SHOULDER_PITCH = 15
-LEFT_SHOULDER_ROLL  = 16
-LEFT_SHOULDER_YAW   = 17
-LEFT_ELBOW          = 18
+# ── Joint indices (robot perspective) ────────────────────────────
+# From g1.hpp: LEFT = joints 15-19, RIGHT = joints 22-26
+RIGHT_SHOULDER_PITCH = 22
+RIGHT_SHOULDER_ROLL  = 23
+RIGHT_SHOULDER_YAW   = 24
+RIGHT_ELBOW          = 25
 
-ARM_TASK_2_JOINTS = {
-    LEFT_SHOULDER_PITCH: 0.292,
-    LEFT_SHOULDER_ROLL:  0.218,
-    LEFT_SHOULDER_YAW:  -0.012,
-    LEFT_ELBOW:          0.979,
-}
-
-LOCO_SET_ARM_TASK = 7106
+# kp/kd from official arm SDK example
+KP = 60.0
+KD = 1.5
 
 
 def calc_crc(cmd):
@@ -108,7 +99,7 @@ def find_best_target(points):
         dists = np.linalg.norm(roi - roi[i], axis=1)
         cm = dists < 0.15
         if cm.sum() >= MIN_CLUSTER_POINTS and cm.sum() > best_size:
-            best_size = cm.sum()
+            best_size = int(cm.sum())
             best = roi[cm].mean(axis=0)
             used[cm] = True
     return best
@@ -116,12 +107,10 @@ def find_best_target(points):
 
 def main():
     if OFFLINE:
-        print("OFFLINE: Simulating touch sequence...")
-        print("  Target: x=-0.21m  y=-1.06m  z=1.10m")
-        print("  Activating arm via task_id=2...")
-        time.sleep(1)
-        print("  Returning home...")
-        time.sleep(1)
+        print("OFFLINE: Simulating touch...")
+        print("  Target: x=0.15m  y=-0.84m  z=0.82m")
+        print("  Moving right arm to target...")
+        time.sleep(2)
         print("  Touch complete!")
         return
 
@@ -130,57 +119,54 @@ def main():
     class TouchNode(Node):
         def __init__(self):
             super().__init__("touch_object_node")
-            qos_be  = QoSProfile(depth=1,  reliability=ReliabilityPolicy.BEST_EFFORT)
-            qos_rel = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
-            self.arm_pub   = self.create_publisher(LowCmd, "/armsdk", qos_be)
-            self.sport_pub = self.create_publisher(Request, "/api/sport/request", qos_rel)
+            qos_be = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
+            self.arm_pub = self.create_publisher(LowCmd, "/armsdk", qos_be)
             self.latest_cloud = None
-            self.latest_state = None
-            self.sport_resp   = None
+            self.current_jpos = {}
+            self.state_received = False
             self.create_subscription(PointCloud2, "/utlidar/cloud_livox_mid360",
                                      lambda m: setattr(self, 'latest_cloud', m), qos_be)
-            self.create_subscription(LowState, "/lf/lowstate",
-                                     lambda m: setattr(self, 'latest_state', m), qos_be)
-            self.create_subscription(Response, "/api/sport/response",
-                                     lambda m: setattr(self, 'sport_resp', m), qos_be)
+            self.create_subscription(LowState, "/lf/lowstate", self._state_cb, qos_be)
 
-        def send_arm_task(self, task_id):
-            msg = Request()
-            msg.header.identity.api_id = LOCO_SET_ARM_TASK
-            msg.parameter = json.dumps({"data": task_id})
-            self.sport_resp = None
-            self.sport_pub.publish(msg)
-            start = time.time()
-            while self.sport_resp is None and (time.time() - start) < 3.0:
-                rclpy.spin_once(self, timeout_sec=0.1)
-            code = self.sport_resp.header.status.code if self.sport_resp else "timeout"
-            return code
+        def _state_cb(self, msg):
+            for idx in [RIGHT_SHOULDER_PITCH, RIGHT_SHOULDER_ROLL,
+                        RIGHT_SHOULDER_YAW, RIGHT_ELBOW]:
+                self.current_jpos[idx] = msg.motor_state[idx].q
+            self.state_received = True
 
-        def send_joints(self, joint_angles, duration=3.0, steps=60):
-            cmd = LowCmd()
-            cmd.mode_machine = 5
-            for j, q in joint_angles.items():
-                cmd.motor_cmd[j].mode = 1
-                cmd.motor_cmd[j].q    = q
-                cmd.motor_cmd[j].kp   = 60.0
-                cmd.motor_cmd[j].kd   = 2.0
+        def interpolate_to(self, target_joints, duration=3.0, steps=150):
+            """Interpolate from current positions to target — mirrors official SDK approach."""
+            start_pos = dict(self.current_jpos)
             dt = duration / steps
-            for _ in range(steps):
+            for i in range(steps):
+                alpha = i / steps
+                cmd = LowCmd()
+                cmd.mode_machine = 5
+                for j, q_target in target_joints.items():
+                    q_start = start_pos.get(j, 0.0)
+                    cmd.motor_cmd[j].mode = 1
+                    cmd.motor_cmd[j].q    = q_start + alpha * (q_target - q_start)
+                    cmd.motor_cmd[j].dq   = 0.0
+                    cmd.motor_cmd[j].kp   = KP
+                    cmd.motor_cmd[j].kd   = KD
                 cmd.crc = calc_crc(cmd)
                 self.arm_pub.publish(cmd)
                 time.sleep(dt)
 
     node = TouchNode()
 
-    print("Waiting for robot state...")
+    # Wait for LowState — matches official SDK "Waiting for LowState..."
+    print("Waiting for LowState...")
     start = time.time()
-    while node.latest_state is None and (time.time() - start) < 8.0:
+    while not node.state_received and (time.time() - start) < 8.0:
         rclpy.spin_once(node, timeout_sec=0.1)
-    if node.latest_state is None:
+    if not node.state_received:
         print("No robot state — is robot on?")
         rclpy.shutdown()
         sys.exit(1)
+    print(f"LowState received. Current right arm: {node.current_jpos}")
 
+    # Scan for objects
     print("Scanning for objects...")
     for _ in range(20):
         rclpy.spin_once(node, timeout_sec=0.2)
@@ -198,40 +184,32 @@ def main():
         rclpy.shutdown()
         sys.exit(1)
 
-    print(f"Target: x={target[0]:.2f}m  y={target[1]:.2f}m  z={target[2]:.2f}m")
+    tx, ty, tz = float(target[0]), float(target[1]), float(target[2])
+    print(f"Target: x={tx:.2f}m  y={ty:.2f}m  z={tz:.2f}m")
 
-    # Step 1 — activate arm control mode via task_id=2
-    print("Activating arm control (task_id=2)...")
-    code = node.send_arm_task(2)
-    print(f"Arm task response: {code}")
-    time.sleep(1.5)
-
-    # Step 2 — full extension toward object
-    tz = float(target[2])
-    ty = float(target[1])
-    tx = float(target[0])
-
-    # Full reach: higher pitch, straighter elbow, roll toward object
-    joints = {
-        LEFT_SHOULDER_PITCH: float(np.clip(0.5 + (tz - 0.9) * 0.4, 0.2, 1.0)),
-        LEFT_SHOULDER_ROLL:  float(np.clip(0.3 - ty * 0.08, 0.1, 0.7)),
-        LEFT_SHOULDER_YAW:   float(np.clip(tx * 0.2, -0.3, 0.3)),
-        LEFT_ELBOW:          float(np.clip(0.3 + (1.2 - tz) * 0.5, 0.1, 0.8)),
+    # Calculate target joint angles for right arm
+    # Right shoulder roll is negative for right arm reaching out
+    reach_joints = {
+        RIGHT_SHOULDER_PITCH: float(np.clip(0.3 + (tz - 0.9) * 0.5,  -0.3, 0.8)),
+        RIGHT_SHOULDER_ROLL:  float(np.clip(-0.3 + ty * 0.1,          -0.8, -0.1)),
+        RIGHT_SHOULDER_YAW:   float(np.clip(tx * 0.15,                -0.3,  0.3)),
+        RIGHT_ELBOW:          float(np.clip(0.5 + (1.2 - tz) * 0.4,   0.1,  1.2)),
     }
+    print(f"Target joints: pitch={reach_joints[RIGHT_SHOULDER_PITCH]:.3f} "
+          f"roll={reach_joints[RIGHT_SHOULDER_ROLL]:.3f} "
+          f"elbow={reach_joints[RIGHT_ELBOW]:.3f}")
 
-    print(f"Full extension joints: pitch={joints[LEFT_SHOULDER_PITCH]:.3f} "
-          f"roll={joints[LEFT_SHOULDER_ROLL]:.3f} "
-          f"elbow={joints[LEFT_ELBOW]:.3f}")
-    print("Moving arm to target...")
-    node.send_joints(joints, duration=3.0)
+    # Move to target
+    print("Moving right arm to target...")
+    node.interpolate_to(reach_joints, duration=3.0)
 
     print("Holding 1 second...")
     time.sleep(1.0)
 
-    print("Returning home (task_id=0)...")
-    code = node.send_arm_task(0)
-    print(f"Home response: {code}")
-    time.sleep(1.0)
+    # Return home
+    print("Returning to home...")
+    home = {j: 0.0 for j in reach_joints}
+    node.interpolate_to(home, duration=3.0)
 
     print("Touch complete!")
     rclpy.shutdown()
